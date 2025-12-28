@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  etl:
+    build:
+      context: .
+      dockerfile: docker/etl.Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    restart: "no"
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/etl.Dockerfile
+    entrypoint: ["uv", "run", "python", "-m", "pipeline.scheduler"]
+    depends_on:
+      db:
+        condition: service_healthy
+      etl:
+        condition: service_completed_successfully
+    env_file: .env
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+      etl:
+        condition: service_completed_successfully
+    env_file: .env
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+    ports:
+      - "${APP_PORT:-7860}:7860"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

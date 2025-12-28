@@ -1,0 +1,47 @@
+player_id,player_name,country_code,birth_date,age,section,stat,raw_value,value,unit
+5403,Luke Littler,ENG,21/01/2007,18,profile,Total earnings,"£2,141,879",2141879.0,£
+5403,Luke Littler,ENG,21/01/2007,18,profile,9 darters,8,8.0,
+5403,Luke Littler,ENG,21/01/2007,18,profile,Season win %,80%,80.0,%
+5403,Luke Littler,ENG,21/01/2007,18,profile,Tour Card Years,1,1.0,
+5403,Luke Littler,ENG,21/01/2007,18,profile,FDI rating,"1,972",1972.0,
+5403,Luke Littler,ENG,21/01/2007,18,profile,Highest average,122.96,122.96,
+5403,Luke Littler,ENG,21/01/2007,18,profile,Order of Merit,1,1.0,
+5403,Luke Littler,ENG,21/01/2007,18,profile,Highest TV Average,115.96,115.96,
+5403,Luke Littler,ENG,21/01/2007,18,last_12_months,Averages,100.96,100.96,
+5403,Luke Littler,ENG,21/01/2007,18,last_12_months,180's,929,929.0,
+5403,Luke Littler,ENG,21/01/2007,18,last_12_months,Checkout Pcnt,42.97%,42.97,%
+5403,Luke Littler,ENG,21/01/2007,18,last_12_months,Pcnt Legs Won,60.04%,60.04,%
+5403,Luke Littler,ENG,21/01/2007,18,last_12_months,Highest Checkout,170,170.0,
+5403,Luke Littler,ENG,21/01/2007,18,last_12_months,First 9 Averages,111.49,111.49,
+5403,Luke Littler,ENG,21/01/2007,18,last_12_months,First 3 Averages,110.57,110.57,
+5403,Luke Littler,ENG,21/01/2007,18,last_12_months,With Throw Averages,99.47,99.47,
+5403,Luke Littler,ENG,21/01/2007,18,last_12_months,Against Throw Averages,102.70,102.7,
+5403,Luke Littler,ENG,21/01/2007,18,last_12_months,Pcnt Legs Won Throwing First,72.54%,72.54,%
+5403,Luke Littler,ENG,21/01/2007,18,last_12_months,Pcnt Legs Won Throwing Second,47.12%,47.12,%
+5403,Luke Littler,ENG,21/01/2007,18,last_12_months,171-180's,998,998.0,
+5403,Luke Littler,ENG,21/01/2007,18,last_12_months,140's,"1,268",1268.0,
+5403,Luke Littler,ENG,21/01/2007,18,last_12_months,131-140's,"1,960",1960.0,
+5403,Luke Littler,ENG,21/01/2007,18,last_12_months,Functional doubles pcnt,49.31%,49.31,%
+34,Luke Humphries,ENG,11/02/1995,30,profile,Total earnings,"£3,326,675",3326675.0,£
+34,Luke Humphries,ENG,11/02/1995,30,profile,9 darters,6,6.0,
+34,Luke Humphries,ENG,11/02/1995,30,profile,Season win %,68%,68.0,%
+34,Luke Humphries,ENG,11/02/1995,30,profile,Tour Card Years,7,7.0,
+34,Luke Humphries,ENG,11/02/1995,30,profile,FDI rating,"1,876",1876.0,
+34,Luke Humphries,ENG,11/02/1995,30,profile,Highest average,119.15,119.15,
+34,Luke Humphries,ENG,11/02/1995,30,profile,Order of Merit,2,2.0,
+34,Luke Humphries,ENG,11/02/1995,30,profile,Highest TV Average,118.43,118.43,
+34,Luke Humphries,ENG,11/02/1995,30,last_12_months,Averages,98.59,98.59,
+34,Luke Humphries,ENG,11/02/1995,30,last_12_months,180's,563,563.0,
+34,Luke Humphries,ENG,11/02/1995,30,last_12_months,Checkout Pcnt,41.22%,41.22,%
+34,Luke Humphries,ENG,11/02/1995,30,last_12_months,Pcnt Legs Won,56.35%,56.35,%
+34,Luke Humphries,ENG,11/02/1995,30,last_12_months,Highest Checkout,170,170.0,
+34,Luke Humphries,ENG,11/02/1995,30,last_12_months,First 9 Averages,107.97,107.97,
+34,Luke Humphries,ENG,11/02/1995,30,last_12_months,First 3 Averages,105.49,105.49,
+34,Luke Humphries,ENG,11/02/1995,30,last_12_months,With Throw Averages,96.72,96.72,
+34,Luke Humphries,ENG,11/02/1995,30,last_12_months,Against Throw Averages,100.72,100.72,
+34,Luke Humphries,ENG,11/02/1995,30,last_12_months,Pcnt Legs Won Throwing First,69.81%,69.81,%
+34,Luke Humphries,ENG,11/02/1995,30,last_12_months,Pcnt Legs Won Throwing Second,43.58%,43.58,%
+34,Luke Humphries,ENG,11/02/1995,30,last_12_months,171-180's,586,586.0,
+34,Luke Humphries,ENG,11/02/1995,30,last_12_months,140's,"1,131",1131.0,
+34,Luke Humphries,ENG,11/02/1995,30,last_12_months,131-140's,"1,681",1681.0,
+34,Luke Humphries,ENG,11/02/1995,30,last_12_months,Functional doubles pcnt,48.08%,48.08,%
