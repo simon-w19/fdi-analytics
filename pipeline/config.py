@@ -30,6 +30,7 @@ class Settings:
     db_name: str = os.getenv("POSTGRES_DB", "fdi")
     database_url_env: str | None = os.getenv("DATABASE_URL")
     refresh_minutes: int = int(os.getenv("FDI_REFRESH_MINUTES", "10080"))
+    ingest_chunksize: int = int(os.getenv("FDI_DB_CHUNKSIZE", "5000"))
 
     @property
     def database_url(self) -> str:

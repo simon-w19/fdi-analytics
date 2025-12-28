@@ -12,6 +12,7 @@ from .config import settings
 
 LOGGER = logging.getLogger("pipeline.ingest")
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s - %(message)s")
+POSTGRES_MAX_BIND_PARAMS = 65_535
 
 
 def _read_dataset(csv_path: str | bytes | "os.PathLike[str]" | "os.PathLike[bytes]") -> pd.DataFrame:
@@ -27,6 +28,21 @@ def _get_engine() -> Engine:
     return create_engine(settings.database_url, pool_pre_ping=True)
 
 
+def _determine_chunk_size(num_columns: int) -> int:
+    """Respect PostgreSQL's bind parameter limit to avoid exit code 1 during bulk loads."""
+    if num_columns <= 0:
+        return settings.ingest_chunksize
+    safe_upper_bound = max(1, (POSTGRES_MAX_BIND_PARAMS // num_columns) - 1)
+    chunk_size = max(1, min(settings.ingest_chunksize, safe_upper_bound))
+    if chunk_size < settings.ingest_chunksize:
+        LOGGER.info(
+            "Reducing chunk size from %s to %s to stay below PostgreSQL bind limit",
+            settings.ingest_chunksize,
+            chunk_size,
+        )
+    return chunk_size
+
+
 def load_dataframe_into_db(df: pd.DataFrame, engine: Optional[Engine] = None) -> None:
     if engine is None:
         engine = _get_engine()
@@ -36,6 +52,7 @@ def load_dataframe_into_db(df: pd.DataFrame, engine: Optional[Engine] = None) ->
         settings.db_schema,
         settings.table_name,
     )
+    chunk_size = _determine_chunk_size(len(df.columns))
     with engine.begin() as conn:
         conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {settings.db_schema}"))
         df.to_sql(
@@ -45,7 +62,7 @@ def load_dataframe_into_db(df: pd.DataFrame, engine: Optional[Engine] = None) ->
             if_exists="replace",
             index=False,
             method="multi",
-            chunksize=5_000,
+            chunksize=chunk_size,
         )
     LOGGER.info("Finished loading dataset into PostgreSQL.")
 
