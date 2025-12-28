@@ -3,7 +3,8 @@ FROM python:3.12-slim AS base
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    UV_SYSTEM_PYTHON=1
+    UV_SYSTEM_PYTHON=1 \
+    PYTHONPATH=/app
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential libpq-dev \
@@ -21,4 +22,4 @@ COPY . .
 
 EXPOSE ${APP_PORT:-7860}
 
-CMD ["uv", "run", "python", "app/gradio_app.py"]
+CMD ["uv", "run", "python", "-m", "app.gradio_app"]
