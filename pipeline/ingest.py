@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Optional
 
 import pandas as pd
@@ -15,9 +16,10 @@ logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s - %(
 POSTGRES_MAX_BIND_PARAMS = 65_535
 
 
-def _read_dataset(csv_path: str | bytes | "os.PathLike[str]" | "os.PathLike[bytes]") -> pd.DataFrame:
-    LOGGER.info("Loading dataset from %s", csv_path)
-    df = pd.read_csv(csv_path)
+def _read_dataset(csv_path: Path | str | bytes | "os.PathLike[str]" | "os.PathLike[bytes]") -> pd.DataFrame:
+    path = Path(csv_path)
+    LOGGER.info("Loading dataset from %s", path)
+    df = pd.read_csv(path)
     if df.empty:
         LOGGER.warning("Dataset at %s is empty.", csv_path)
     return df
@@ -67,8 +69,9 @@ def load_dataframe_into_db(df: pd.DataFrame, engine: Optional[Engine] = None) ->
     LOGGER.info("Finished loading dataset into PostgreSQL.")
 
 
-def main() -> None:
-    df = _read_dataset(settings.csv_path)
+def main(csv_path: Path | str | None = None) -> None:
+    target_path = Path(csv_path) if csv_path else settings.processed_csv_path
+    df = _read_dataset(target_path)
     if df.empty:
         LOGGER.warning("Skipping ingestion because the dataframe is empty.")
         return

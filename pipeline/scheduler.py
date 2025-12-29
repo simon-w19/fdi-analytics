@@ -7,7 +7,7 @@ import sys
 import time
 from datetime import datetime, timezone
 
-from . import ingest
+from . import etl
 from .config import settings
 
 LOGGER = logging.getLogger("pipeline.scheduler")
@@ -21,13 +21,13 @@ def _interval_seconds() -> int:
     return max(MIN_INTERVAL_SECONDS, minutes * 60)
 
 
-def run_ingestion_once() -> None:
-    LOGGER.info("Starting ingestion cycle at %s", datetime.now(timezone.utc).isoformat())
+def run_pipeline_once() -> None:
+    LOGGER.info("Starting ETL cycle at %s", datetime.now(timezone.utc).isoformat())
     try:
-        ingest.main()
-        LOGGER.info("Ingestion cycle finished successfully.")
+        etl.run_pipeline()
+        LOGGER.info("ETL cycle finished successfully.")
     except Exception as exc:  # noqa: BLE001
-        LOGGER.exception("Ingestion cycle failed: %s", exc)
+        LOGGER.exception("ETL cycle failed: %s", exc)
 
 
 def main() -> None:
@@ -45,7 +45,7 @@ def main() -> None:
     signal.signal(signal.SIGINT, _handle_signal)
 
     while True:
-        run_ingestion_once()
+        run_pipeline_once()
         if should_exit:
             LOGGER.info("Scheduler stopping on signal request.")
             break

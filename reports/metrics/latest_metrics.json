@@ -1,0 +1,36 @@
+{
+  "metrics": {
+    "linear_regression": {
+      "mae": 35.256701904732246,
+      "rmse": 46.34932212582976,
+      "r2": 0.9280023920467441,
+      "cv_mae_mean": 38.64298839201159,
+      "cv_mae_std": 0.506028596439926
+    },
+    "lasso": {
+      "mae": 35.2740206143926,
+      "rmse": 46.14785487361662,
+      "r2": 0.928626937765392,
+      "cv_mae_mean": 38.45081603869512,
+      "cv_mae_std": 0.4297146817896611,
+      "best_params": {
+        "model__alpha": 0.01,
+        "model__max_iter": 40000
+      },
+      "tuning_cv_mae": 38.45081603869512
+    },
+    "random_forest": {
+      "mae": 37.34578082189116,
+      "rmse": 47.944742880788574,
+      "r2": 0.9229605307945873,
+      "cv_mae_mean": 40.31244577779466,
+      "cv_mae_std": 1.0824680991125848,
+      "best_params": {
+        "model__max_depth": 16,
+        "model__min_samples_leaf": 1,
+        "model__n_estimators": 900
+      },
+      "tuning_cv_mae": 40.31244577779465
+    }
+  }
+}

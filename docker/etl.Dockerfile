@@ -18,4 +18,4 @@ ENV PATH="/app/.venv/bin:${PATH}"
 
 COPY . .
 
-ENTRYPOINT ["uv", "run", "python", "-m", "pipeline.ingest"]
+ENTRYPOINT ["uv", "run", "python", "-m", "pipeline.etl"]

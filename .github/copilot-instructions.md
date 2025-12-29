@@ -39,6 +39,6 @@ Methodik: Du vergleichst ein Lineares Regressionsmodell (Baseline) mit komplexer
 3. Deployment & Visualisierung
 Das Ergebnis ist nicht nur ein PDF-Report, sondern eine nutzbare Anwendung:
 
-Frontend: Eine Streamlit Web-App, die ebenfalls via Docker auf dem Server läuft.
+Frontend: Eine Gradio Web-App, die ebenfalls via Docker auf dem Server läuft.
 
 Funktion: User können Spieler-Stats eingeben (oder auswählen) und das Modell prognostiziert das FDI-Rating in Echtzeit.
