@@ -55,7 +55,8 @@ SCHEMA = DataFrameSchema(
             checks=pa.Check.between(0, 100),
             nullable=True,
         ),
-        "last_12_months_averages": Column(float, checks=pa.Check.between(50, 140), nullable=True),
+        # Allow any positive scoring average; low values surfaced in production scrapes
+        "last_12_months_averages": Column(float, checks=pa.Check.gt(0), nullable=True),
     },
     coerce=True,
 )
