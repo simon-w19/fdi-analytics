@@ -56,6 +56,9 @@ services:
       - DATABASE_URL=${DATABASE_URL}
     ports:
       - "${APP_PORT:-7860}:7860"
+    volumes:
+      - ./models:/app/models:ro
+      - ./reports/metrics:/app/reports/metrics:ro
     restart: unless-stopped
 
 volumes:

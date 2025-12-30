@@ -92,6 +92,25 @@ uv run python -m pipeline.train \
 - Das beste Modell wird als vollständige `sklearn`-Pipeline persistiert und direkt von Gradio geladen.
 - Die JSON-Metriken enthalten MAE, RMSE, $R^2$ sowie die CV-Ergebnisse aller Modelle und dienen als Audit-Log.
 
+### Artefakte ohne Container-Rebuild aktualisieren
+
+Der Gradio-Container mountet `models/` und `reports/metrics/` direkt:
+
+```
+app:
+  volumes:
+    - ./models:/app/models:ro
+    - ./reports/metrics:/app/reports/metrics:ro
+```
+
+Workflow nach jedem Training:
+
+1. `uv run python -m pipeline.train` — erzeugt `models/best_fdi_pipeline.joblib` und `reports/metrics/latest_metrics.json`.
+2. Artefakte landen dank Mounts sofort im laufenden Container (kein `docker compose build` nötig).
+3. `docker compose restart app` (oder `docker compose up -d app`) lädt das Modell neu; das Insights-Leaderboard liest automatisch die aktualisierte `latest_metrics.json`.
+
+Optional kannst du die beiden Ordner auf S3/MinIO spiegeln, solange der Mount-Pfad auf dem Host weiterhin gefüllt wird.
+
 ## Qualitätssicherung
 
 ```bash

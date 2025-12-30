@@ -149,6 +149,17 @@ def render_country_chart(country_df: pd.DataFrame | None):
     )
 
 
+def build_category_frequency(dataset: pd.DataFrame | None) -> Dict[str, pd.DataFrame]:
+    tables: Dict[str, pd.DataFrame] = {}
+    if dataset is None or dataset.empty:
+        return tables
+    if "country" in dataset.columns:
+        freq = dataset["country"].fillna("UNK").value_counts().reset_index()
+        freq.columns = ["Country", "Frequency"]
+        tables["country"] = freq
+    return tables
+
+
 def extract_feature_importances(pipeline, top_n: int = 15) -> pd.DataFrame:
     if pipeline is None:
         return pd.DataFrame()
@@ -536,6 +547,15 @@ def render_insights_tab(dataset: pd.DataFrame | None, dataset_error: str | None)
         else:
             gr.Plot(value=render_country_chart(country_df))
             gr.Dataframe(value=country_df, interactive=False, label="FDI nach Land")
+
+    freq_tables = build_category_frequency(dataset)
+    with gr.Accordion("Kategorie-Häufigkeiten", open=False):
+        if not freq_tables:
+            gr.Markdown("Keine kategorialen Features für eine Häufigkeitsanalyse verfügbar.")
+        else:
+            for name, table in freq_tables.items():
+                gr.Markdown(f"**{name.title()}**")
+                gr.Dataframe(value=table, interactive=False, label=f"{name.title()} Frequency")
 
     importance_df = extract_feature_importances(PIPELINE)
     with gr.Accordion("Model Feature Impact", open=False):
