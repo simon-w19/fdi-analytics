@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -16,7 +17,9 @@ logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s - %(
 POSTGRES_MAX_BIND_PARAMS = 65_535
 
 
-def _read_dataset(csv_path: Path | str | bytes | "os.PathLike[str]" | "os.PathLike[bytes]") -> pd.DataFrame:
+def _read_dataset(
+    csv_path: Path | str | bytes | os.PathLike[str] | os.PathLike[bytes],
+) -> pd.DataFrame:
     path = Path(csv_path)
     LOGGER.info("Loading dataset from %s", path)
     df = pd.read_csv(path)

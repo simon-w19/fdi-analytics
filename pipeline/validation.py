@@ -57,6 +57,7 @@ SCHEMA = DataFrameSchema(
         ),
         # Allow any positive scoring average; low values surfaced in production scrapes
         "last_12_months_averages": Column(float, checks=pa.Check.gt(0), nullable=True),
+        "scraped_at": Column(pa.DateTime, nullable=False),
     },
     coerce=True,
 )

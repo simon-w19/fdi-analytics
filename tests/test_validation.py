@@ -21,6 +21,7 @@ def _sample_df() -> pd.DataFrame:
                 "last_12_months_functional_doubles_pcnt": 50,
                 "last_12_months_averages": 98,
                 "last_12_months_pcnt_legs_won": 60,
+                "scraped_at": pd.Timestamp("2025-01-01T12:00:00Z"),
             }
         ]
     )

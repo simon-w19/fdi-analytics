@@ -98,6 +98,7 @@ MODEL_METADATA_COLUMNS: List[str] = [
     "country_code",
     COUNTRY_FEATURE,
     TARGET_COL,
+    "scraped_at",
 ]
 
 

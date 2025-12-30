@@ -23,6 +23,7 @@ def transform_dataset(
     LOGGER.info("Transforming dataset %s -> %s", source, target)
     df = pd.read_csv(source)
     df = engineer_features(df)
+    df["scraped_at"] = pd.Timestamp.now(tz="UTC")
     ordered_columns: list[str] = []
     seen: set[str] = set()
     for column in [*MODEL_METADATA_COLUMNS, *FEATURE_COLUMNS, *DEFAULT_EXTRA_COLUMNS]:

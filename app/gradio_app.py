@@ -13,8 +13,6 @@ import joblib
 import numpy as np
 import pandas as pd
 import uvicorn
-
-alt.data_transformers.disable_max_rows()
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -30,6 +28,8 @@ from pipeline.features import (
     default_input_vector,
     engineer_features,
 )
+
+alt.data_transformers.disable_max_rows()
 
 LOGGER = logging.getLogger("app.gradio")
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s - %(message)s")
@@ -53,6 +53,150 @@ INSIGHT_FEATURE_CHOICES: List[str] = [
     "break_efficiency",
     "power_scoring_ratio",
 ]
+
+
+def build_dataset_snapshot(dataset: pd.DataFrame | None) -> str:
+    if dataset is None or dataset.empty:
+        return "Keine Daten im Cache – ETL erneut starten."
+    target = dataset[TARGET_COL]
+    target_iqr = target.quantile(0.75) - target.quantile(0.25)
+    scraped_info = "Unbekannt"
+    if "scraped_at" in dataset.columns:
+        last_scrape = pd.to_datetime(dataset["scraped_at"], errors="coerce").max()
+        if pd.notna(last_scrape):
+            scraped_info = f"{last_scrape.tz_localize('UTC') if last_scrape.tzinfo is None else last_scrape}"  # best-effort string
+    lines = [
+        f"- **Beobachtungen**: {len(dataset):,}",
+        f"- **Länder**: {dataset['country'].nunique() if 'country' in dataset.columns else 'N/A'}",
+        f"- **Features (numeric/kategorial)**: {len(FEATURE_COLUMNS) - 1} / 1",
+        f"- **FDI Ø / Median**: {target.mean():.1f} / {target.median():.1f}",
+        f"- **FDI IQR**: {target_iqr:.1f}",
+        f"- **Letzter Scrape**: {scraped_info}",
+    ]
+    return "\n".join(lines)
+
+
+def build_correlation_table(dataset: pd.DataFrame | None, top_n: int = 10) -> pd.DataFrame:
+    if dataset is None or dataset.empty:
+        return pd.DataFrame()
+    numeric_cols = dataset.select_dtypes(include=["number"]).columns.tolist()
+    numeric_cols = [col for col in numeric_cols if col != TARGET_COL]
+    if not numeric_cols:
+        return pd.DataFrame()
+    corr_series = dataset[numeric_cols].corrwith(dataset[TARGET_COL]).dropna()
+    if corr_series.empty:
+        return pd.DataFrame()
+    corr_df = (
+        pd.DataFrame({"Feature": corr_series.index, "Correlation": corr_series.values})
+        .assign(abs_corr=lambda d: d["Correlation"].abs())
+        .sort_values("abs_corr", ascending=False)
+        .drop(columns="abs_corr")
+        .head(top_n)
+    )
+    return corr_df
+
+
+def render_correlation_chart(corr_df: pd.DataFrame | None):
+    if corr_df is None or corr_df.empty:
+        fallback = pd.DataFrame({"Hinweis": ["Keine Korrelationen berechnet."]})
+        return alt.Chart(fallback).mark_text(size=14).encode(text="Hinweis:N")
+    ordered = corr_df.sort_values("Correlation")
+    scale = alt.Scale(domain=[-1, 1])
+    return (
+        alt.Chart(ordered)
+        .mark_bar()
+        .encode(
+            x=alt.X("Correlation:Q", scale=scale, title="Pearson-Korrelation"),
+            y=alt.Y("Feature:N", sort=ordered["Feature"].tolist(), title="Feature"),
+            color=alt.condition("datum.Correlation > 0", alt.value("#00b894"), alt.value("#d63031")),
+            tooltip=["Feature", alt.Tooltip("Correlation", format=".3f")],
+        )
+        .properties(height=300)
+    )
+
+
+def build_country_summary(dataset: pd.DataFrame | None, top_n: int = 10) -> pd.DataFrame:
+    if dataset is None or dataset.empty or "country" not in dataset.columns:
+        return pd.DataFrame()
+    grouping = dataset.groupby("country")
+    players = grouping.size().rename("players")
+    avg_fdi = grouping[TARGET_COL].mean().rename("avg_fdi")
+    summary = (
+        pd.concat([players, avg_fdi], axis=1)
+        .sort_values("avg_fdi", ascending=False)
+        .head(top_n)
+        .reset_index()
+    )
+    summary["avg_fdi"] = summary["avg_fdi"].round(1)
+    return summary.rename(columns={"country": "Country", "players": "Players", "avg_fdi": "Avg FDI"})
+
+
+def render_country_chart(country_df: pd.DataFrame | None):
+    if country_df is None or country_df.empty:
+        fallback = pd.DataFrame({"Hinweis": ["Keine Länderstatistiken verfügbar."]})
+        return alt.Chart(fallback).mark_text(size=14).encode(text="Hinweis:N")
+    ordered = country_df.sort_values("Avg FDI", ascending=True)
+    return (
+        alt.Chart(ordered)
+        .mark_bar()
+        .encode(
+            x=alt.X("Avg FDI:Q", title="Ø FDI"),
+            y=alt.Y("Country:N", sort=ordered["Country"].tolist()),
+            color=alt.Color("Players:Q", title="Spielerzahl", scale=alt.Scale(scheme="blues")),
+            tooltip=["Country", "Players", "Avg FDI"],
+        )
+        .properties(height=300)
+    )
+
+
+def extract_feature_importances(pipeline, top_n: int = 15) -> pd.DataFrame:
+    if pipeline is None:
+        return pd.DataFrame()
+    try:
+        preprocessor = pipeline.named_steps["preprocess"]
+        feature_names = preprocessor.get_feature_names_out()
+        model = pipeline.named_steps["model"]
+    except Exception:
+        return pd.DataFrame()
+    if hasattr(model, "feature_importances_"):
+        importances = model.feature_importances_
+    elif hasattr(model, "coef_"):
+        importances = np.ravel(model.coef_)
+    else:
+        return pd.DataFrame()
+    df = pd.DataFrame({"Feature": feature_names, "Importance": importances})
+    df = df.assign(abs_importance=lambda d: d["Importance"].abs())
+    return df.sort_values("abs_importance", ascending=False).drop(columns="abs_importance").head(top_n)
+
+
+def render_importance_chart(importance_df: pd.DataFrame | None):
+    if importance_df is None or importance_df.empty:
+        fallback = pd.DataFrame({"Hinweis": ["Keine Feature-Importances verfügbar."]})
+        return alt.Chart(fallback).mark_text(size=14).encode(text="Hinweis:N")
+    ordered = importance_df.sort_values("Importance")
+    return (
+        alt.Chart(ordered)
+        .mark_bar()
+        .encode(
+            x=alt.X("Importance:Q", title="Modellgewichtung"),
+            y=alt.Y("Feature:N", sort=ordered["Feature"].tolist()),
+            color=alt.condition("datum.Importance > 0", alt.value("#6c5ce7"), alt.value("#fdcb6e")),
+            tooltip=["Feature", alt.Tooltip("Importance", format=".4f")],
+        )
+        .properties(height=320)
+    )
+
+
+def build_feature_story(importance_df: pd.DataFrame | None) -> str:
+    if importance_df is None or importance_df.empty:
+        return "Kein Modell geladen – bitte Training abschließen."
+    top = importance_df.iloc[0]
+    tail = importance_df.iloc[-1]
+    lines = [
+        f"- **{top['Feature']}** dominiert die Vorhersage (höchste absolute Gewichtung).",
+        f"- **{tail['Feature']}** liefert den geringsten Beitrag und kann für Sparmodelle reduziert werden.",
+    ]
+    return "\n".join(lines)
 
 
 class PredictionRequest(BaseModel):
@@ -359,6 +503,9 @@ def render_insights_tab(dataset: pd.DataFrame | None, dataset_error: str | None)
         )
         return
 
+    gr.Markdown("### Daten-Snapshot")
+    gr.Markdown(build_dataset_snapshot(dataset))
+
     metrics_df = build_metrics_dataframe()
     with gr.Accordion("Modell-Leaderboard", open=True):
         if metrics_df is None:
@@ -373,6 +520,31 @@ def render_insights_tab(dataset: pd.DataFrame | None, dataset_error: str | None)
             gr.Markdown("Keine Spieler im Cache gefunden.")
         else:
             gr.Dataframe(value=top_players, interactive=False, label="Top-Spieler")
+
+    corr_df = build_correlation_table(dataset)
+    with gr.Accordion("Feature-Korrelationen zum FDI", open=False):
+        if corr_df.empty:
+            gr.Markdown("Keine numerischen Features für die Korrelationsanalyse gefunden.")
+        else:
+            gr.Plot(value=render_correlation_chart(corr_df))
+            gr.Dataframe(value=corr_df, interactive=False, label="Top-Korrelationen")
+
+    country_df = build_country_summary(dataset)
+    with gr.Accordion("Country Performance Board", open=False):
+        if country_df.empty:
+            gr.Markdown("Noch keine Länderkennzahlen verfügbar.")
+        else:
+            gr.Plot(value=render_country_chart(country_df))
+            gr.Dataframe(value=country_df, interactive=False, label="FDI nach Land")
+
+    importance_df = extract_feature_importances(PIPELINE)
+    with gr.Accordion("Model Feature Impact", open=False):
+        if importance_df.empty:
+            gr.Markdown("Kein Modellartefakt geladen oder das Modell liefert keine Importances.")
+        else:
+            gr.Plot(value=render_importance_chart(importance_df))
+            gr.Dataframe(value=importance_df, interactive=False, label="Feature-Gewichtungen")
+            gr.Markdown(build_feature_story(importance_df))
 
     gr.Markdown("### Feature Explorer")
     feature_dropdown = gr.Dropdown(
