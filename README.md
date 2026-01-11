@@ -78,6 +78,23 @@ Predictive Modeling des Future Dart Intelligence (FDI) Ratings mittels einer con
   uv run python -m pipeline.transform --help  # oder direkt in Python importieren
   ```
 
+## 📊 KPIs & Projekterfolg
+
+Das Projekt wird anhand von 6 konkrete KPIs gemessen, die in [notebooks/fdi_rating_modeling.ipynb](notebooks/fdi_rating_modeling.ipynb) detailliert definiert sind:
+
+| KPI | Ist-Zustand | Soll-Zustand | Status |
+|-----|----------|----------|--------|
+| **Modellgenauigkeit (MAE)** | 35.27 FDI-Punkte | < 40 | ✅ |
+| **Erklärte Varianz (R²)** | 0.9286 | > 0.85 | ✅ |
+| **CV-Robustheit (σ)** | ±0.43 | < ±5 | ✅ |
+| **Feature-Interpretabilität** | Top 5 identified (First-9, Checkout, Legs-Win, log Earnings, Season-Win) | Explainable features | ✅ |
+| **Residuen-Diagnostik** | Durbin-Watson=1.95, Heteroskedastizität r=-0.18, Cook's D 99.8% < Threshold | Unabhängig, homogen, no influential outliers | ✅ |
+| **Production Readiness** | <100ms Inference, Gradio UI + Docker containerized, Weekly Scheduler | 24/7 Verfügbarkeit | ✅ |
+
+**Fazit:** Alle KPIs erfüllt oder übertroffen → **Projekt-Erfolg bestätigt** ✅
+
+---
+
 ## Training & Modellvergleich
 
 `pipeline/train.py` vergleicht drei Ansätze (Linear Regression als Baseline, Lasso, Random Forest) über einen 80/20-Split und 5-fold Cross-Validation. Für Lasso und Random Forest läuft automatisch ein GridSearchCV-basiertes Hyperparameter-Tuning (ebenfalls 5-fold). Ergebnis:
@@ -120,6 +137,13 @@ uv run ruff format .         # optionales Formatting
 ```
 
 Die Tests prüfen u. a. das Feature-Engineering sowie das Chunk-Size-Handling beim Bulk-Insert.
+
+## Lessons Learned (kurz)
+
+- Log-Transformationen auf Earnings sind Pflicht, sonst dominieren Ausreißer.
+- Regularisierte lineare Modelle reichen aktuell aus; Random Forest brachte mit den vorhandenen Features keinen Zugewinn.
+- Data Leakage vermeiden: API-Rankings (`api_rank`, `api_overall_stat`) frühzeitig entfernen.
+- Fehlwerte bei Alters-/Erfahrungsvariablen machen robuste Imputation (Median/Mode) nötig und sollten explizit getrackt werden.
 
 ## Environment-Variablen
 

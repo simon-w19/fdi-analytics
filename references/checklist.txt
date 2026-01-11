@@ -1,0 +1,80 @@
+Hier ist eine umfassende Checkliste für Ihr Projekt, basierend auf dem gesamten Inhalt des Dokuments "Checkliste Data Analytics with Statistics":Umfassende Checkliste für das Data Analytics ProjektI. Datenverständnis & Vorbereitung (Univariate und Bivariate Analyse)
+Deskriptive Statistik erstellen:
+Summary Statistics (Zusammenfassende Statistiken) berechnen.
+Verteilungen und Häufigkeiten prüfen.
+Variablenübersicht erstellen:
+Übersicht der Variablen und deren Beschreibung in einer Tabelle anlegen.
+Variablentypen unterscheiden (numerisch diskret/kontinuierlich, kategorial nominal/ordinal).
+Kategorische Variablen prüfen:
+Alle kategorischen Variablen identifizieren 
+Ungleichgewichte erkennen (Bar Plots): Kategorien mit extrem wenigen Datenpunkten identifizieren und ggf. zusammenfassen ("Sonstige") oder entfernen, um Verzerrungen zu vermeiden.
+Beziehungen zwischen Kategorien prüfen (Bivariate Analyse):
+Abhängigkeiten testen (Kontingenztabellen): Prüfen, ob bestimmte Kategorien stark zusammenhängen (Multikollinearität).
+II. Analyse der Zielvariable (FDI Rating) und Prädiktoren
+Analyse der Zielvariable (FDI Rating):
+Histogramm erstellen: Verteilung auf Symmetrie/Schiefe prüfen (erwartet: Glockenkurve).
+Ausreißer prüfen (Boxplot): Spieler mit extrem hohem/niedrigem FDI identifizieren und deren potenziellen Einfluss auf das Modell überlegen.
+Analyse der Prädiktoren (Numerisch vs. Kategorisch):
+Boxplots erstellen: FDI Rating (y) gegen kategorische Variablen (x) plotten. Prüfen, ob sich die Mediane deutlich unterscheiden (Indikator für einen guten Prädiktor).
+Ridge Plots nutzen: Bei vielen Datenpunkten die Konstanz (Breite der Verteilung) des FDI pro Kategorie prüfen.
+Faceting nutzen: Eine dritte Variable prüfen 
+Analyse der Prädiktoren (Statistiken):
+Scatterplots erstellen (Linearitäts-Check): Beziehungen zwischen numerischen Prädiktoren und FDI prüfen.
+Korrelation prüfen: Hängen die Prädiktoren untereinander zusammen? (Gefahr der Kollinearität, z. B. First 9 Average und 3-Dart Average). Nur den allgemeineren Prädiktor nutzen.
+Umgang mit Ausreißern und Transformationen:
+Mittelwert vs. Median entscheiden: Median verwenden, wenn Ausreißer den Mittelwert stark verzerren (repräsentativer für die "wahre" Stärke).
+Log-Transformation testen: Anwenden, falls Scatterplots eine Kurve zeigen oder die Variable extrem rechtsschief ist (z. B. Geldpreise).
+Überprüfung auf Störfaktoren (Confounding Variables):
+Simpsons Paradoxon im Hinterkopf behalten: Prüfen, ob der Zusammenhang zwischen zwei Variablen durch eine dritte Variable (Störfaktor) verzerrt wird.
+III. Modellierung und Diagnose (Lineare Regression)
+Voraussetzungen prüfen (Vor dem Modellieren):
+Linearität visuell prüfen: Scatterplot (Statistik vs. FDI). Ist der Trend eine Gerade?
+Korrelation berechnen ($R$): Prüfen, ob der Wert nah bei -1 oder 1 liegt (gutes Zeichen).
+Modell erstellen & Interpretieren (Einfache Regression):
+Least Squares Regression durchführen (Koeffizienten $b_0$ und $b_1$ berechnen lassen).
+Slope ($b_1$) interpretieren: Formulierung: "Wenn der Prädiktor um 1 Punkt steigt, sinkt/steigt das FDI-Rating im Schnitt um den Wert $b_1$."
+Modellgüte bewerten:
+$R^2$ bewerten: Wie viel des FDI-Rätsels wurde gelöst (z. B. $R^2 = 0.3 \Rightarrow$ 30% erklärt).
+Residuen-Plot erstellen (WICHTIG): Residuen (y) gegen vorhergesagte Werte (x) plotten. Check: Zufällige Wolke (Gut) oder Trichter (Heteroskedastizität)?
+Umgang mit Ausreißern (Outlier-Analyse):
+Auf „High Leverage“ (extreme x-Werte) prüfen.
+Einfluss testen: Modell mit und ohne den Ausreißer erstellen. Wenn sich der Slope ($b_1$) drastisch ändert, ist es ein „Influential Point“.
+Kategorische Variablen umwandeln:
+Kategorische Variablen (z. B. Wurfhand) in Dummy-Variablen umwandeln (1=Ja, 0=Nein).
+Das "Volle Modell" erstellen (Multiple Regression):
+Alle sinnvollen Statistiken in die Regression werfen (z. B. FDI $\sim$ Average + Checkout_Percent + ...).
+Koeffizienten interpretieren ("Ceteris Paribus"): "Bei zwei Spielern mit exakt gleichem [Prädiktor A] hat derjenige mit dem besseren [Prädiktor B] das höhere FDI."
+Modellauswahl (Verfeinerung):
+Adjusted $R^2$ prüfen.
+Backward Elimination durchführen: Die Variable mit dem kleinsten Einfluss entfernen (p-Wert oder Entfernung erhöht Adjusted $R^2$).
+Parsimonität anstreben: Das einfachste Modell mit guter Vorhersagekraft wählen.
+Diagnostik & Realitätscheck:
+Vorzeichen-Check: Machen die Vorzeichen der Koeffizienten Sinn? (Negatives Vorzeichen bei Average deutet auf Multikollinearität hin).
+Residuen-Check: Prüfen, ob die Fehler zufällig verteilt sind.
+IV. Projekt- und Präsentationsanforderungen
+Projektinhalt:
+Data Analytics Use Case definieren.
+Modell unterbringen (mindestens Lineare Regression).
+Data Architecture definieren.
+"Lohnt" sich der Use Case?
+Data driven decision making demonstrieren.
+Kennzahlen & Erfolg:
+Kennzahlen (KPIs) definieren, an denen der Projekterfolg messbar ist.
+Ist-Zustand KPI $\to$ Soll-Zustand KPI $\to$ Weg dorthin beschreiben.
+Literatur & Forschung:
+Bücher durcharbeiten: Introduction to Modern Statistics (2e) johanna hardin (Kapitel 1-7 ohne Study Design 14578) und An Introduction to statistical learning with applications in python gareth james.
+Literatur-Research betreiben, um Informationen zu sammeln.
+Dokumentation & Präsentation:
+Dokumentation: Readme $\to$ Wiki $\to$ Pages (Quarto nutzen, um Webseiten/Berichte aus Python zu erstellen).
+Bericht erstellen mit Quarto.
+Präsentation (20 Min) vorbereiten (Format ist freigestellt).
+Präsentation in der Hinterhand halten (Screenshots, etc.).
+Ablauf: Blöcke, in denen vorgestellt wird. Am Ende Fragen (15 Min für Rückfragen).
+Notizen:
+Überprüfen, ob genügend Features vorhanden sind 
+Metriken auswählen, die für das Projekt verwendet werden sollen.
+scikit learn pipeline nutzen.
+Prüfen, ob Multiple-Choice-Fragen/Quizfragen aus dem Buch/Moodle zum Projekt passen.
+EDA (Exploratory Data Analysis) durchführen: 
+Erfahrungen und Schwierigkeiten notieren.
+

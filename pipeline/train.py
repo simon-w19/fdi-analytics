@@ -21,6 +21,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from .config import settings
+from .diagnostics import run_full_diagnostics
 from .features import (
     FEATURE_COLUMNS,
     NUMERIC_FEATURES,
@@ -170,12 +171,21 @@ def evaluate_model(model: Pipeline, x_valid: pd.DataFrame, y_valid: pd.Series) -
     return mae, rmse, r2
 
 
-def persist_artifacts(model: Pipeline, metrics: Dict[str, Dict[str, Any]], model_path: Path, metrics_path: Path) -> None:
+def persist_artifacts(
+    model: Pipeline,
+    metrics: Dict[str, Dict[str, Any]],
+    model_path: Path,
+    metrics_path: Path,
+    diagnostics: Dict[str, Any] | None = None,
+) -> None:
     model_path.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, model_path)
     LOGGER.info("Persisted pipeline to %s", model_path)
 
-    metrics_payload = {"metrics": metrics}
+    metrics_payload = {
+        "metrics": metrics,
+        "diagnostics": diagnostics or {},
+    }
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     metrics_path.write_text(json.dumps(metrics_payload, indent=2), encoding="utf-8")
     LOGGER.info("Wrote metrics to %s", metrics_path)
@@ -234,14 +244,41 @@ def train(csv_path: Path | str | None = None, model_path: Path | None = None, me
         raise RuntimeError("Model training failed; no candidate produced a score.")
 
     LOGGER.info("Best model: %s (MAE %.3f)", best_name, best_score)
+    
+    # Run comprehensive diagnostics on best model
+    LOGGER.info("Running diagnostics on best model...")
+    try:
+        # Count features: Get number of features after preprocessing
+        preprocessor = best_model.named_steps["preprocessor"]
+        preprocessor.fit(x_train)
+        feature_names = preprocessor.get_feature_names_out()
+        n_features = len(feature_names)
+        
+        diagnostics = run_full_diagnostics(
+            best_model,
+            x_train,
+            y_train,
+            x_valid,
+            y_valid,
+            n_features,
+        )
+        diagnostics["best_model_name"] = best_name
+        LOGGER.info("Diagnostics: Adjusted R² = %.4f", diagnostics.get("adjusted_r2", 0))
+    except Exception as e:
+        LOGGER.warning("Could not run diagnostics: %s", e)
+        diagnostics = {}
+    
     artefact = model_path or Path("models/best_fdi_pipeline.joblib")
     metrics_file = metrics_path or Path("reports/metrics/latest_metrics.json")
-    persist_artifacts(best_model, leaderboard, artefact, metrics_file)
+    persist_artifacts(best_model, leaderboard, artefact, metrics_file, diagnostics)
     if _mlflow_enabled():
         assert mlflow is not None
         mlflow.log_artifact(str(artefact))
         mlflow.log_artifact(str(metrics_file))
         mlflow.set_tag("best_model", best_name)
+        # Log diagnostics to MLflow
+        if diagnostics:
+            mlflow.log_metrics({k: v for k, v in diagnostics.items() if isinstance(v, (int, float))})
     return leaderboard
 
 

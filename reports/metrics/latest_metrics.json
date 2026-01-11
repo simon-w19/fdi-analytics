@@ -20,11 +20,11 @@
       "tuning_cv_mae": 38.45081603869512
     },
     "random_forest": {
-      "mae": 37.34578082189116,
-      "rmse": 47.944742880788574,
+      "mae": 37.345780821891154,
+      "rmse": 47.94474288078856,
       "r2": 0.9229605307945873,
-      "cv_mae_mean": 40.31244577779466,
-      "cv_mae_std": 1.0824680991125848,
+      "cv_mae_mean": 40.31244577779465,
+      "cv_mae_std": 1.0824680991125877,
       "best_params": {
         "model__max_depth": 16,
         "model__min_samples_leaf": 1,
@@ -32,5 +32,26 @@
       },
       "tuning_cv_mae": 40.31244577779465
     }
+  },
+  "diagnostics": {
+    "adjusted_r2": 0.9076714613034671,
+    "n_features": 109,
+    "n_samples_train": 1981,
+    "n_samples_test": 496,
+    "residual_mean": -0.28006005818120444,
+    "residual_std": 46.39526902545218,
+    "residual_min": -186.09712948321385,
+    "residual_max": 231.43691768164558,
+    "durbin_watson": 1.9809977431816663,
+    "breusch_pagan_stat": 90.65670532109228,
+    "breusch_pagan_pvalue": 0.898664123967932,
+    "heteroskedasticity_corr": -0.14262774378299362,
+    "cooks_distance_max": 146.74364925034482,
+    "cooks_distance_mean": 0.1357808812937124,
+    "cooks_distance_95percentile": 0.001979559782117864,
+    "n_influential_points": 98,
+    "influential_points_pct": 4.98220640569395,
+    "threshold": 0.0020191822311963654,
+    "best_model_name": "linear_regression"
   }
 }
