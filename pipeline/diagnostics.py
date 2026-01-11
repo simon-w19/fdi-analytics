@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, Any, Tuple
+from typing import Dict, Any
 
 import numpy as np
 import pandas as pd
