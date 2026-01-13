@@ -753,6 +753,73 @@ wheels = [
 ]
 
 [[package]]
+name = "fdi-analytics"
+version = "1.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "altair" },
+    { name = "beautifulsoup4" },
+    { name = "duckdb" },
+    { name = "fastapi" },
+    { name = "gradio" },
+    { name = "httpx" },
+    { name = "joblib" },
+    { name = "jupyter" },
+    { name = "jupyter-contrib-nbextensions" },
+    { name = "matplotlib" },
+    { name = "mlflow" },
+    { name = "openpyxl" },
+    { name = "pandas" },
+    { name = "pandera" },
+    { name = "playwright" },
+    { name = "psycopg", extra = ["binary"] },
+    { name = "pydantic" },
+    { name = "pytest" },
+    { name = "requests" },
+    { name = "rise" },
+    { name = "ruff" },
+    { name = "scikit-learn" },
+    { name = "seaborn" },
+    { name = "sqlalchemy" },
+    { name = "statsmodels" },
+    { name = "uvicorn", extra = ["standard"] },
+    { name = "vega-datasets" },
+    { name = "voila" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "altair", specifier = ">=6.0.0" },
+    { name = "beautifulsoup4", specifier = ">=4.14.2" },
+    { name = "duckdb", specifier = ">=1.4.3" },
+    { name = "fastapi", specifier = ">=0.115.0" },
+    { name = "gradio", specifier = ">=6.2.0" },
+    { name = "httpx", specifier = ">=0.27.2" },
+    { name = "joblib", specifier = ">=1.5.2" },
+    { name = "jupyter", specifier = ">=1.1.1" },
+    { name = "jupyter-contrib-nbextensions", specifier = ">=0.7.0" },
+    { name = "matplotlib", specifier = ">=3.10.7" },
+    { name = "mlflow", specifier = ">=2.16.0" },
+    { name = "openpyxl", specifier = ">=3.1.5" },
+    { name = "pandas", specifier = ">=2.3.3" },
+    { name = "pandera", specifier = ">=0.18.3" },
+    { name = "playwright", specifier = ">=1.49.0" },
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.2.1" },
+    { name = "pydantic", specifier = ">=2.9.0" },
+    { name = "pytest", specifier = ">=8.3.4" },
+    { name = "requests", specifier = ">=2.32.5" },
+    { name = "rise", specifier = ">=5.7.1" },
+    { name = "ruff", specifier = ">=0.7.3" },
+    { name = "scikit-learn", specifier = ">=1.7.2" },
+    { name = "seaborn", specifier = ">=0.13.2" },
+    { name = "sqlalchemy", specifier = ">=2.0.36" },
+    { name = "statsmodels", specifier = ">=0.14.5" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0" },
+    { name = "vega-datasets", specifier = ">=0.9.0" },
+    { name = "voila", specifier = ">=0.5.11" },
+]
+
+[[package]]
 name = "ffmpy"
 version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3591,73 +3658,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/b8/d0/f95da95524bdd99613923ca61a3036d1308cee1290e5e8acb89f51736a8c/statsmodels-0.14.5-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9c8a9c384a60c80731b278e7fd18764364c8817f4995b13a175d636f967823d1", size = 10460450, upload-time = "2025-10-30T16:32:44.985Z" },
     { url = "https://files.pythonhosted.org/packages/28/bb/59e7be0271be264b7b541baf3973f97747740950bfd5115de731f63da8ab/statsmodels-0.14.5-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:557df3a870a57248df744fdfcc444ecbc5bdbf1c042b8a8b5d8e3e797830dc2a", size = 10694060, upload-time = "2025-10-30T16:33:07.656Z" },
     { url = "https://files.pythonhosted.org/packages/8b/c0/b28d0fd0347ea38d3610052f479e4b922eb33bb8790817f93cd89e6e08ba/statsmodels-0.14.5-cp314-cp314-win_amd64.whl", hash = "sha256:95af7a9c4689d514f4341478b891f867766f3da297f514b8c4adf08f4fa61d03", size = 9648961, upload-time = "2025-10-30T13:47:24.303Z" },
-]
-
-[[package]]
-name = "template-repo"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "altair" },
-    { name = "beautifulsoup4" },
-    { name = "duckdb" },
-    { name = "fastapi" },
-    { name = "gradio" },
-    { name = "httpx" },
-    { name = "joblib" },
-    { name = "jupyter" },
-    { name = "jupyter-contrib-nbextensions" },
-    { name = "matplotlib" },
-    { name = "mlflow" },
-    { name = "openpyxl" },
-    { name = "pandas" },
-    { name = "pandera" },
-    { name = "playwright" },
-    { name = "psycopg", extra = ["binary"] },
-    { name = "pydantic" },
-    { name = "pytest" },
-    { name = "requests" },
-    { name = "rise" },
-    { name = "ruff" },
-    { name = "scikit-learn" },
-    { name = "seaborn" },
-    { name = "sqlalchemy" },
-    { name = "statsmodels" },
-    { name = "uvicorn", extra = ["standard"] },
-    { name = "vega-datasets" },
-    { name = "voila" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "altair", specifier = ">=6.0.0" },
-    { name = "beautifulsoup4", specifier = ">=4.14.2" },
-    { name = "duckdb", specifier = ">=1.4.3" },
-    { name = "fastapi", specifier = ">=0.115.0" },
-    { name = "gradio", specifier = ">=6.2.0" },
-    { name = "httpx", specifier = ">=0.27.2" },
-    { name = "joblib", specifier = ">=1.5.2" },
-    { name = "jupyter", specifier = ">=1.1.1" },
-    { name = "jupyter-contrib-nbextensions", specifier = ">=0.7.0" },
-    { name = "matplotlib", specifier = ">=3.10.7" },
-    { name = "mlflow", specifier = ">=2.16.0" },
-    { name = "openpyxl", specifier = ">=3.1.5" },
-    { name = "pandas", specifier = ">=2.3.3" },
-    { name = "pandera", specifier = ">=0.18.3" },
-    { name = "playwright", specifier = ">=1.49.0" },
-    { name = "psycopg", extras = ["binary"], specifier = ">=3.2.1" },
-    { name = "pydantic", specifier = ">=2.9.0" },
-    { name = "pytest", specifier = ">=8.3.4" },
-    { name = "requests", specifier = ">=2.32.5" },
-    { name = "rise", specifier = ">=5.7.1" },
-    { name = "ruff", specifier = ">=0.7.3" },
-    { name = "scikit-learn", specifier = ">=1.7.2" },
-    { name = "seaborn", specifier = ">=0.13.2" },
-    { name = "sqlalchemy", specifier = ">=2.0.36" },
-    { name = "statsmodels", specifier = ">=0.14.5" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0" },
-    { name = "vega-datasets", specifier = ">=0.9.0" },
-    { name = "voila", specifier = ">=0.5.11" },
 ]
 
 [[package]]

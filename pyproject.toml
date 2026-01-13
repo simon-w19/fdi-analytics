@@ -1,7 +1,7 @@
 [project]
-name = "template-repo"
-version = "0.1.0"
-description = "Add your description here"
+name = "fdi-analytics"
+version = "1.0.0"
+description = "End-to-End Darts Analytics: Predictive Modeling of the FDI Rating using a containerized Data Pipeline"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

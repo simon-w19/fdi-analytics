@@ -32,6 +32,7 @@ MANIFEST
 
 # Virtual Environments
 .env
+# IMPORTANT: .env.example is NOT ignored - it serves as a template for setup
 .venv/
 env/
 venv/

@@ -33,7 +33,6 @@ NUMERIC_NON_NEGATIVE = [
     "last_12_months_171_180_s",
     "last_12_months_140_s",
     "last_12_months_131_140_s",
-    "api_sum_field1",
     "api_sum_field2",
 ]
 

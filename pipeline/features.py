@@ -1,4 +1,20 @@
-"""Shared feature definitions and helpers for the FDI pipeline."""
+"""Shared feature definitions and helpers for the FDI pipeline.
+
+Multikollinearitäts-Analyse (Stand: Januar 2026):
+==================================================
+Ursprünglich 38 Features, davon 36 mit VIF > 5 (problematisch).
+64 Feature-Paare mit |r| > 0.8 identifiziert.
+
+KRITISCHE FUNDE:
+1. Perfekte Kollinearität (r=1.0): profile_season_win_pct ↔ season_win_rate
+2. Sehr hohe Korrelation (r>0.99):
+   - last_12_months_180_s ↔ last_12_months_171_180_s
+   - last_12_months_averages ↔ with/against_throw_averages
+   - checkout_pcnt ↔ functional_doubles_pcnt
+   
+LÖSUNG: Reduziertes Feature-Set (REDUCED_FEATURE_COLUMNS) für stabile Koeffizienten.
+Das vollständige Set (FEATURE_COLUMNS) bleibt für Regularisierung (Lasso/Ridge) verfügbar.
+"""
 from __future__ import annotations
 
 from typing import Dict, List
@@ -8,6 +24,11 @@ import pandas as pd
 
 TARGET_COL = "profile_fdi_rating"
 COUNTRY_FEATURE = "country"
+
+# =============================================================================
+# VOLLSTÄNDIGES FEATURE-SET (Original, 38 Features)
+# Enthält redundante Features - nur für Regularisierungsmodelle (Lasso/Ridge)
+# =============================================================================
 FEATURE_COLUMNS: List[str] = [
     "age",
     "profile_total_earnings",
@@ -37,7 +58,6 @@ FEATURE_COLUMNS: List[str] = [
     "last_12_months_171_180_s",
     "last_12_months_140_s",
     "last_12_months_131_140_s",
-    "api_sum_field1",
     "api_sum_field2",
     "experience_intensity",
     "earnings_per_year",
@@ -47,6 +67,65 @@ FEATURE_COLUMNS: List[str] = [
     "power_scoring_ratio",
     "tv_stage_delta",
     COUNTRY_FEATURE,
+]
+
+# =============================================================================
+# REDUZIERTES FEATURE-SET (11 Features, VIF-optimiert)
+# Entfernt redundante Features nach Multikollinearitäts-Analyse
+# Empfohlen für: Lineare Regression, Interpretation, stabile Koeffizienten
+# =============================================================================
+REDUCED_FEATURE_COLUMNS: List[str] = [
+    # === Grundlegende Spielermerkmale ===
+    "age",                           # Alter (Erfahrung & Physis)
+    # ENTFERNT: profile_tour_card_years (r=0.87 mit experience_intensity)
+    "profile_order_of_merit",        # Offizielles Ranking (externe Validierung)
+    
+    # === Finanzieller Erfolg (nur log-transformiert, da nicht-linear) ===
+    "log_total_earnings",            # BEHALTEN: Logarithmiert für Normalität
+    # ENTFERNT: profile_total_earnings (redundant mit log-Version, r=0.96)
+    
+    # === Gewinnquote (nur Original, nicht skaliert) ===
+    "profile_season_win_pct",        # BEHALTEN: Season-Gewinnquote (%)
+    # ENTFERNT: season_win_rate (identisch, nur /100, r=1.0)
+    # ENTFERNT: last_12_months_pcnt_legs_won (r=0.95 mit season_win_pct)
+    
+    # === Leistungsmetriken - Kern ===
+    "last_12_months_averages",       # BEHALTEN: 3-Dart-Average (zentral!)
+    # ENTFERNT: with/against_throw_averages (subsumt, r>0.99)
+    # ENTFERNT: last_12_months_first_9_averages (r=0.99 mit averages)
+    # ENTFERNT: last_12_months_first_3_averages (r=0.97 mit averages)
+    
+    # === Checkout-Qualität (nur eine Variante) ===
+    "last_12_months_checkout_pcnt",  # BEHALTEN: Checkout-% (Finish-Qualität)
+    # ENTFERNT: functional_doubles_pcnt (nahezu identisch, r=0.99)
+    # ENTFERNT: checkout_combo (engineered aus den obigen, redundant)
+    # ENTFERNT: profile_highest_average (r=0.93 mit averages, r=0.86 mit checkout)
+    
+    # === Power Scoring (nur aggregiert) ===
+    "power_scoring_ratio",           # BEHALTEN: Engineered (180s+171s)/(140s+131s)
+    # ENTFERNT: last_12_months_180_s, 171_180_s, 140_s, 131_140_s (Einzelkomponenten)
+    
+    # === Erfahrungs-/Erfolgsmetriken ===
+    "profile_9_darters",             # BEHALTEN: Anzahl perfekter Legs (niedrig korreliert)
+    # ENTFERNT: profile_highest_tv_average (korreliert hoch mit highest_average)
+    # ENTFERNT: tv_stage_delta (abgeleitet)
+    
+    # === API-Daten ===
+    # ENTFERNT: api_sum_field1 (r=0.9999 mit last_12_months_averages, kein echter Stat)
+    # ENTFERNT: api_sum_field2 (hoch korreliert mit field1)
+    
+    # === Engineered Features (nieder-korreliert, informativ) ===
+    "momentum_gap",                  # BEHALTEN: With-Against Throw Delta
+    "experience_intensity",          # BEHALTEN: Tour-Card-Years / Age
+    # ENTFERNT: earnings_per_year (korreliert mit log_earnings + years)
+    
+    # === Kategorisch ===
+    COUNTRY_FEATURE,                 # Nationalität
+]
+
+# Abgeleitete Listen für reduziertes Set
+REDUCED_NUMERIC_FEATURES: List[str] = [
+    col for col in REDUCED_FEATURE_COLUMNS if col != COUNTRY_FEATURE
 ]
 NUMERIC_INPUT_COLUMNS: List[str] = [
     "age",
@@ -72,7 +151,6 @@ NUMERIC_INPUT_COLUMNS: List[str] = [
     "last_12_months_171_180_s",
     "last_12_months_140_s",
     "last_12_months_131_140_s",
-    "api_sum_field1",
     "api_sum_field2",
 ]
 DERIVED_FEATURES: List[str] = [
@@ -190,6 +268,8 @@ __all__ = [
     "TARGET_COL",
     "COUNTRY_FEATURE",
     "FEATURE_COLUMNS",
+    "REDUCED_FEATURE_COLUMNS",
+    "REDUCED_NUMERIC_FEATURES",
     "NUMERIC_FEATURES",
     "NUMERIC_INPUT_COLUMNS",
     "CATEGORICAL_FEATURES",

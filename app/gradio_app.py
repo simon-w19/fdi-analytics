@@ -1,9 +1,19 @@
-"""FDI Rating service combining Gradio UI and FastAPI endpoints."""
+"""FDI Rating service combining Gradio UI and FastAPI endpoints.
+
+Features:
+- Prediction Studio: Einzelvorhersagen mit Spieler-Presets und FDI-Vergleich
+- What-If Comparison: Zwei Spieler nebeneinander vergleichen
+- Feature Contributions: Visualisierung der Feature-Beiträge
+- Model Info Panel: Aktive Modelldetails
+- Export: Vorhersagen als JSON herunterladen
+- Insights & EDA: Interaktive Datenexploration
+"""
 from __future__ import annotations
 
 import json
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
@@ -53,6 +63,208 @@ INSIGHT_FEATURE_CHOICES: List[str] = [
     "break_efficiency",
     "power_scoring_ratio",
 ]
+
+
+# =============================================================================
+# MODEL INFO & METRICS HELPERS
+# =============================================================================
+
+def get_model_info() -> Dict[str, Any]:
+    """Extract model metadata for the info panel."""
+    info = {
+        "model_type": "Unbekannt",
+        "n_features": len(FEATURE_COLUMNS),
+        "hyperparameters": {},
+        "training_date": "Unbekannt",
+        "performance": {},
+    }
+    
+    if PIPELINE is not None:
+        try:
+            model = PIPELINE.named_steps.get("model")
+            if model is not None:
+                info["model_type"] = type(model).__name__
+                params = model.get_params()
+                relevant_keys = ["alpha", "max_iter", "n_estimators", "max_depth", "min_samples_leaf"]
+                info["hyperparameters"] = {k: v for k, v in params.items() if k in relevant_keys}
+        except Exception as e:
+            LOGGER.warning("Could not extract model info: %s", e)
+    
+    payload = load_metrics_payload()
+    if payload:
+        info["training_date"] = payload.get("timestamp", "Unbekannt")
+        best_model = payload.get("best_model", "")
+        metrics = payload.get("metrics", {})
+        if best_model and best_model in metrics:
+            info["performance"] = metrics[best_model]
+    
+    return info
+
+
+def build_model_info_markdown() -> str:
+    """Generate markdown summary for the model info panel."""
+    info = get_model_info()
+    
+    lines = [
+        "### 🤖 Aktives Modell",
+        f"**Typ:** {info['model_type']}",
+        f"**Features:** {info['n_features']}",
+    ]
+    
+    if info["hyperparameters"]:
+        params_str = ", ".join(f"{k}={v}" for k, v in info["hyperparameters"].items())
+        lines.append(f"**Hyperparameter:** {params_str}")
+    
+    perf = info["performance"]
+    if perf:
+        lines.append("")
+        lines.append("### 📊 Performance (Test-Set)")
+        if isinstance(perf.get("r2"), (int, float)):
+            lines.append(f"- **R²:** {perf['r2']:.4f}")
+        if isinstance(perf.get("mae"), (int, float)):
+            lines.append(f"- **MAE:** {perf['mae']:.2f} FDI-Punkte")
+        if isinstance(perf.get("rmse"), (int, float)):
+            lines.append(f"- **RMSE:** {perf['rmse']:.2f}")
+        if perf.get("cv_mae_mean"):
+            lines.append(f"- **CV MAE:** {perf['cv_mae_mean']:.2f} ± {perf.get('cv_mae_std', 0):.2f}")
+    
+    if info["training_date"] != "Unbekannt":
+        lines.append("")
+        lines.append(f"*Trainiert: {str(info['training_date'])[:19]}*")
+    
+    return "\n".join(lines)
+
+
+# =============================================================================
+# FEATURE CONTRIBUTION ANALYSIS
+# =============================================================================
+
+def compute_feature_contributions(pipeline, features: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute approximate feature contributions using coefficient-based attribution.
+    For Lasso/Linear models, this shows the scaled contribution of each feature.
+    """
+    if pipeline is None:
+        return pd.DataFrame()
+    
+    try:
+        model = pipeline.named_steps["model"]
+        preprocessor = pipeline.named_steps["preprocess"]
+        
+        feature_names = preprocessor.get_feature_names_out()
+        X_transformed = preprocessor.transform(features)
+        
+        if hasattr(model, "coef_"):
+            coefs = np.ravel(model.coef_)
+            if hasattr(X_transformed, "toarray"):
+                X_vals = X_transformed.toarray().ravel()
+            else:
+                X_vals = np.ravel(X_transformed)
+            
+            contributions = coefs * X_vals
+            
+            df = pd.DataFrame({
+                "Feature": feature_names,
+                "Coefficient": coefs,
+                "Value": X_vals,
+                "Contribution": contributions,
+            })
+            df["Abs_Contribution"] = df["Contribution"].abs()
+            return df.sort_values("Abs_Contribution", ascending=False).head(15)
+        
+        elif hasattr(model, "feature_importances_"):
+            importances = model.feature_importances_
+            df = pd.DataFrame({
+                "Feature": feature_names,
+                "Importance": importances,
+                "Contribution": importances,
+            })
+            df["Abs_Contribution"] = df["Contribution"].abs()
+            return df.sort_values("Abs_Contribution", ascending=False).head(15)
+    
+    except Exception as e:
+        LOGGER.warning("Could not compute contributions: %s", e)
+    
+    return pd.DataFrame()
+
+
+def render_contribution_chart(contrib_df: pd.DataFrame | None):
+    """Render a waterfall-style contribution chart."""
+    if contrib_df is None or contrib_df.empty:
+        fallback = pd.DataFrame({"Hinweis": ["Keine Feature-Beiträge verfügbar."]})
+        return alt.Chart(fallback).mark_text(size=14).encode(text="Hinweis:N")
+    
+    plot_df = contrib_df.head(12).copy()
+    plot_df = plot_df.sort_values("Contribution")
+    
+    return (
+        alt.Chart(plot_df)
+        .mark_bar()
+        .encode(
+            x=alt.X("Contribution:Q", title="Beitrag zum FDI-Rating"),
+            y=alt.Y("Feature:N", sort=plot_df["Feature"].tolist(), title="Feature"),
+            color=alt.condition(
+                "datum.Contribution > 0",
+                alt.value("#00b894"),
+                alt.value("#d63031"),
+            ),
+            tooltip=[
+                "Feature",
+                alt.Tooltip("Contribution:Q", format=".2f"),
+            ],
+        )
+        .properties(height=350, title="Feature-Beiträge zur Vorhersage")
+    )
+
+
+# =============================================================================
+# EXPORT FUNCTIONALITY
+# =============================================================================
+
+def export_prediction_json(
+    player_name: str, country: str, predicted_fdi: float, 
+    actual_fdi: float | None, features: Dict[str, float]
+) -> str:
+    """Export prediction as JSON string."""
+    export_data = {
+        "timestamp": datetime.now().isoformat(),
+        "player_name": player_name,
+        "country": country,
+        "predicted_fdi": round(predicted_fdi, 2),
+        "actual_fdi_dartsorakel": actual_fdi,
+        "delta": round(predicted_fdi - actual_fdi, 2) if actual_fdi else None,
+        "features": {k: round(v, 4) if isinstance(v, float) else v for k, v in features.items()},
+        "model_info": get_model_info(),
+    }
+    return json.dumps(export_data, indent=2, ensure_ascii=False, default=str)
+
+
+# =============================================================================
+# PLAYER DATA HELPERS
+# =============================================================================
+
+def _get_player_row(player_name: str, dataset: pd.DataFrame) -> pd.Series | None:
+    """Get a player's data row from the dataset."""
+    if player_name and player_name != "Freie Eingabe":
+        matches = dataset.loc[dataset["player_name"] == player_name]
+        if not matches.empty:
+            return matches.iloc[0]
+    return None
+
+
+def get_player_actual_fdi(player_name: str, dataset: pd.DataFrame) -> float | None:
+    """Get the actual DartsOrakel FDI rating for a player."""
+    row = _get_player_row(player_name, dataset)
+    if row is not None and TARGET_COL in row.index:
+        val = row[TARGET_COL]
+        if pd.notna(val):
+            return float(val)
+    return None
+
+
+# =============================================================================
+# VISUALIZATION HELPERS
+# =============================================================================
 
 
 def build_dataset_snapshot(dataset: pd.DataFrame | None) -> str:
@@ -411,98 +623,272 @@ def _get_prefilled_row(selection: str, dataset: pd.DataFrame) -> pd.Series:
 
 def _prepare_feature_table(features: pd.DataFrame) -> pd.DataFrame:
     series = features.iloc[0]
-    values = ["nan" if pd.isna(series[col]) else str(series[col]) for col in FEATURE_COLUMNS]
-    return pd.DataFrame({"feature": FEATURE_COLUMNS, "value": values})
+    values = ["nan" if pd.isna(series[col]) else f"{series[col]:.4f}" for col in FEATURE_COLUMNS]
+    return pd.DataFrame({"Feature": FEATURE_COLUMNS, "Wert": values})
 
 
-def handle_prefill(selection: str) -> List[float]:
+def handle_prefill(selection: str) -> List:
+    """Handle player selection and prefill all inputs including actual FDI."""
     dataset = refresh_data_cache()
     row = _get_prefilled_row(selection, dataset)
-    numeric_values = [float(row.get(col, 0.0)) for col in NUMERIC_INPUT_COLUMNS]
-    return [str(row.get("player_name", "FDI Prospect")), row.get("country", "UNK")] + numeric_values
+    
+    # Get actual FDI for comparison
+    actual_fdi = get_player_actual_fdi(selection, dataset)
+    actual_fdi_display = f"{actual_fdi:.1f}" if actual_fdi else "N/A"
+    
+    numeric_values = [float(row.get(col, 0.0) or 0.0) for col in NUMERIC_INPUT_COLUMNS]
+    
+    return [
+        str(row.get("player_name", "FDI Prospect")),
+        row.get("country", "UNK"),
+        actual_fdi_display,
+    ] + numeric_values
 
 
-def handle_prediction(player_name: str, country: str, *numeric_values: Sequence[float]):
+def handle_prediction(player_name: str, country: str, actual_fdi_str: str, *numeric_values: Sequence[float]):
+    """Handle prediction with contribution analysis and comparison."""
     if PIPELINE is None:
         raise gr.Error("Kein Modellartefakt gefunden. Bitte exportiere best_fdi_pipeline.joblib im Notebook.")
+    
+    # Build feature payload
     payload = {}
     for col, val in zip(NUMERIC_INPUT_COLUMNS, numeric_values):
         payload[col] = float(val if val is not None else 0.0)
     payload["player_name"] = player_name or "FDI Prospect"
     payload["country"] = country or "UNK"
+    
+    # Get prediction
     feature_frame = build_prediction_frame(payload)
     rating = predict_rating(PIPELINE, feature_frame)
-    preview_table = _prepare_feature_table(feature_frame)
-    return round(rating, 3), preview_table
+    
+    # Parse actual FDI for comparison
+    try:
+        actual_fdi = float(actual_fdi_str) if actual_fdi_str and actual_fdi_str != "N/A" else None
+    except ValueError:
+        actual_fdi = None
+    
+    # Compute delta
+    if actual_fdi is not None:
+        delta = rating - actual_fdi
+        comparison_text = f"**Δ = {delta:+.1f}** (Modell {'über' if delta > 0 else 'unter'}schätzt)"
+    else:
+        comparison_text = "Kein DartsOrakel-Vergleichswert verfügbar"
+    
+    # Feature contributions
+    contrib_df = compute_feature_contributions(PIPELINE, feature_frame)
+    contrib_chart = render_contribution_chart(contrib_df)
+    
+    # Feature table
+    feature_table = _prepare_feature_table(feature_frame)
+    
+    # Export JSON
+    export_json = export_prediction_json(player_name, country, rating, actual_fdi, payload)
+    
+    return (
+        round(rating, 1),
+        actual_fdi if actual_fdi else "N/A",
+        comparison_text,
+        contrib_chart,
+        feature_table,
+        export_json,
+    )
+
+
+# =============================================================================
+# WHAT-IF COMPARISON
+# =============================================================================
+
+def handle_whatif_comparison(player1: str, player2: str):
+    """Compare two players side by side."""
+    if PIPELINE is None:
+        raise gr.Error("Kein Modellartefakt geladen.")
+    
+    dataset = refresh_data_cache()
+    
+    results = []
+    for player_name in [player1, player2]:
+        row = _get_prefilled_row(player_name, dataset)
+        
+        # Build payload
+        payload = {}
+        for col in NUMERIC_INPUT_COLUMNS:
+            payload[col] = float(row.get(col, 0.0) or 0.0)
+        payload["player_name"] = str(row.get("player_name", player_name))
+        payload["country"] = row.get("country", "UNK")
+        
+        # Predict
+        feature_frame = build_prediction_frame(payload)
+        predicted = predict_rating(PIPELINE, feature_frame)
+        actual = get_player_actual_fdi(player_name, dataset)
+        
+        results.append({
+            "Spieler": payload["player_name"],
+            "Land": payload["country"],
+            "Modell-FDI": round(predicted, 1),
+            "DartsOrakel-FDI": actual if actual else "N/A",
+            "Delta": round(predicted - actual, 1) if actual else "N/A",
+            "3-Dart Avg": round(payload.get("last_12_months_averages", 0), 2),
+            "First-9 Avg": round(payload.get("last_12_months_first_9_averages", 0), 2),
+            "Checkout %": round(payload.get("last_12_months_checkout_pcnt", 0), 2),
+            "Legs Won %": round(payload.get("last_12_months_pcnt_legs_won", 0), 2),
+        })
+    
+    comparison_df = pd.DataFrame(results)
+    
+    # Create difference visualization
+    if len(results) == 2:
+        p1, p2 = results
+        diff_data = []
+        compare_keys = ["3-Dart Avg", "First-9 Avg", "Checkout %", "Legs Won %"]
+        for key in compare_keys:
+            v1, v2 = p1.get(key, 0), p2.get(key, 0)
+            if isinstance(v1, (int, float)) and isinstance(v2, (int, float)):
+                diff_data.append({
+                    "Metrik": key,
+                    "Spieler 1": v1,
+                    "Spieler 2": v2,
+                    "Differenz": v1 - v2,
+                })
+        diff_df = pd.DataFrame(diff_data)
+        
+        diff_chart = (
+            alt.Chart(diff_df)
+            .mark_bar()
+            .encode(
+                x=alt.X("Differenz:Q", title=f"{p1['Spieler']} - {p2['Spieler']}"),
+                y=alt.Y("Metrik:N", sort=compare_keys),
+                color=alt.condition(
+                    "datum.Differenz > 0",
+                    alt.value("#0984e3"),
+                    alt.value("#e17055"),
+                ),
+                tooltip=["Metrik", "Spieler 1", "Spieler 2", "Differenz"],
+            )
+            .properties(height=200, title="Feature-Unterschiede")
+        )
+    else:
+        diff_chart = alt.Chart(pd.DataFrame()).mark_text()
+    
+    # Summary text
+    if len(results) == 2 and isinstance(results[0]["Modell-FDI"], (int, float)) and isinstance(results[1]["Modell-FDI"], (int, float)):
+        fdi_diff = results[0]["Modell-FDI"] - results[1]["Modell-FDI"]
+        summary = f"**{results[0]['Spieler']}** wird um **{abs(fdi_diff):.1f} FDI-Punkte** {'höher' if fdi_diff > 0 else 'niedriger'} eingeschätzt als **{results[1]['Spieler']}**."
+    else:
+        summary = "Vergleich nicht möglich."
+    
+    return comparison_df, diff_chart, summary
 
 
 def render_prediction_tab(dataset: pd.DataFrame | None, dataset_error: str | None) -> None:
-    gr.Markdown("## Prediction Studio")
+    gr.Markdown("## 🎯 Prediction Studio")
+    gr.Markdown("Wähle einen Spieler aus, um dessen Features zu laden und das vorhergesagte FDI-Rating mit dem echten DartsOrakel-Wert zu vergleichen.")
+    
     if dataset_error or dataset is None:
-        gr.Markdown(
-            f"❗ **Datenquelle fehlt.** Verbindung zur Datenbank/CSV fehlgeschlagen: {dataset_error or 'unbekannter Fehler'}."
-        )
+        gr.Markdown(f"❗ **Datenquelle fehlt.** {dataset_error or 'unbekannter Fehler'}.")
         return
-
-    initial_row = _get_prefilled_row(PLAYER_CHOICES[0], dataset)
-    default_country = initial_row.get("country", COUNTRY_CHOICES[0])
-
-    status_lines = []
-    if PIPELINE is None:
-        status_lines.append(
-            "⚠️ Kein Modellartefakt gefunden. Führe die Export-Zelle im Notebook aus (models/best_fdi_pipeline.joblib)."
-        )
-    else:
-        status_lines.append("✅ Modellpipeline geladen.")
-    status_lines.append(f"📦 Spieler im Cache: {len(dataset):,}")
-    gr.Markdown("\n".join(status_lines))
-
-    player_selector = gr.Dropdown(
-        choices=PLAYER_CHOICES,
-        value=PLAYER_CHOICES[0],
-        label="Spielerprofil laden",
-    )
-    player_name_box = gr.Textbox(
-        label="Spielername (optional)",
-        value=str(initial_row.get("player_name", "FDI Prospect")),
-    )
-    country_dropdown = gr.Dropdown(
-        choices=COUNTRY_CHOICES,
-        value=default_country,
-        label="Land",
-    )
-
-    numeric_components: List[gr.Number] = []
-    chunk_size = 3
-    for idx in range(0, len(NUMERIC_INPUT_COLUMNS), chunk_size):
-        with gr.Row():
-            for column in NUMERIC_INPUT_COLUMNS[idx : idx + chunk_size]:
-                comp = gr.Number(
-                    label=column,
-                    value=float(initial_row.get(column, 0.0)),
+    
+    # Model info panel in sidebar
+    with gr.Row():
+        with gr.Column(scale=3):
+            # Player selection
+            player_selector = gr.Dropdown(
+                choices=PLAYER_CHOICES,
+                value=PLAYER_CHOICES[0],
+                label="🎮 Spieler auswählen (lädt Features automatisch)",
+            )
+            
+            with gr.Row():
+                player_name_box = gr.Textbox(label="Spielername", value="FDI Prospect")
+                country_dropdown = gr.Dropdown(choices=COUNTRY_CHOICES, value="UNK", label="Land")
+                actual_fdi_box = gr.Textbox(label="DartsOrakel FDI (Referenz)", value="N/A", interactive=False)
+        
+        with gr.Column(scale=1):
+            gr.Markdown(build_model_info_markdown())
+    
+    # Numeric inputs in collapsible section
+    with gr.Accordion("📊 Feature-Eingaben (werden bei Spielerauswahl automatisch gefüllt)", open=False):
+        numeric_components: List[gr.Number] = []
+        chunk_size = 4
+        for idx in range(0, len(NUMERIC_INPUT_COLUMNS), chunk_size):
+            with gr.Row():
+                for column in NUMERIC_INPUT_COLUMNS[idx : idx + chunk_size]:
+                    comp = gr.Number(label=column, value=0.0)
+                    numeric_components.append(comp)
+    
+    # Prediction button and outputs
+    predict_button = gr.Button("🔮 FDI Rating vorhersagen", variant="primary", size="lg")
+    
+    with gr.Row():
+        with gr.Column(scale=1):
+            prediction_output = gr.Number(label="📈 Modell-Vorhersage", interactive=False)
+        with gr.Column(scale=1):
+            actual_display = gr.Textbox(label="📊 DartsOrakel (Referenz)", interactive=False)
+        with gr.Column(scale=1):
+            comparison_text = gr.Markdown("Warte auf Vorhersage...")
+    
+    # Contribution chart
+    gr.Markdown("### 📈 Feature-Beiträge zur Vorhersage")
+    contribution_chart = gr.Plot(label="Feature Contributions")
+    
+    # Feature table and export
+    with gr.Row():
+        with gr.Column(scale=2):
+            with gr.Accordion("📋 Vollständiger Feature-Vektor", open=False):
+                feature_table = gr.Dataframe(
+                    headers=["Feature", "Wert"],
+                    datatype=["str", "str"],
+                    label="Genutzter Feature-Vektor",
+                    interactive=False,
                 )
-                numeric_components.append(comp)
-
-    predict_button = gr.Button("FDI Rating vorhersagen", variant="primary")
-    prediction_output = gr.Number(label="Vorhergesagtes FDI-Rating", interactive=False)
-    feature_table = gr.Dataframe(
-        headers=["feature", "value"],
-        datatype=["str", "str"],
-        row_count=(len(FEATURE_COLUMNS), "dynamic"),
-        label="Genutzter Feature-Vektor",
-        interactive=False,
-    )
-
+        with gr.Column(scale=1):
+            with gr.Accordion("💾 Export (JSON)", open=False):
+                export_json_box = gr.Code(language="json", label="JSON Export")
+                gr.Markdown("*Kopiere den JSON-Inhalt für externe Verwendung.*")
+    
+    # Event handlers
     player_selector.change(
         fn=handle_prefill,
         inputs=player_selector,
-        outputs=[player_name_box, country_dropdown] + numeric_components,
+        outputs=[player_name_box, country_dropdown, actual_fdi_box] + numeric_components,
     )
-
+    
     predict_button.click(
         fn=handle_prediction,
-        inputs=[player_name_box, country_dropdown] + numeric_components,
-        outputs=[prediction_output, feature_table],
+        inputs=[player_name_box, country_dropdown, actual_fdi_box] + numeric_components,
+        outputs=[prediction_output, actual_display, comparison_text, contribution_chart, feature_table, export_json_box],
+    )
+
+
+def render_whatif_tab(dataset: pd.DataFrame | None, dataset_error: str | None) -> None:
+    gr.Markdown("## ⚖️ What-If Vergleich")
+    gr.Markdown("Vergleiche zwei Spieler nebeneinander, um zu sehen, wie sich die Vorhersagen unterscheiden.")
+    
+    if dataset_error or dataset is None:
+        gr.Markdown(f"❗ **Datenquelle fehlt.** {dataset_error or 'unbekannter Fehler'}.")
+        return
+    
+    with gr.Row():
+        player1_dropdown = gr.Dropdown(
+            choices=PLAYER_CHOICES[1:] if len(PLAYER_CHOICES) > 1 else PLAYER_CHOICES,
+            value=PLAYER_CHOICES[1] if len(PLAYER_CHOICES) > 1 else PLAYER_CHOICES[0],
+            label="🎮 Spieler 1",
+        )
+        player2_dropdown = gr.Dropdown(
+            choices=PLAYER_CHOICES[1:] if len(PLAYER_CHOICES) > 1 else PLAYER_CHOICES,
+            value=PLAYER_CHOICES[2] if len(PLAYER_CHOICES) > 2 else PLAYER_CHOICES[0],
+            label="🎮 Spieler 2",
+        )
+    
+    compare_button = gr.Button("🔄 Vergleichen", variant="primary")
+    
+    comparison_summary = gr.Markdown("Wähle zwei Spieler und klicke 'Vergleichen'.")
+    comparison_table = gr.Dataframe(label="Vergleichstabelle", interactive=False)
+    difference_chart = gr.Plot(label="Feature-Unterschiede")
+    
+    compare_button.click(
+        fn=handle_whatif_comparison,
+        inputs=[player1_dropdown, player2_dropdown],
+        outputs=[comparison_table, difference_chart, comparison_summary],
     )
 
 
@@ -577,7 +963,10 @@ def render_insights_tab(dataset: pd.DataFrame | None, dataset_error: str | None)
 
 
 def build_interface():
-    with gr.Blocks(title="FDI Analytics Command Center") as demo:
+    with gr.Blocks(title="FDI Analytics Command Center", theme=gr.themes.Soft()) as demo:
+        gr.Markdown("# 🎯 FDI Analytics Command Center")
+        gr.Markdown("*Vorhersage und Analyse von Darts-Spieler-Ratings im Vergleich zu DartsOrakel*")
+        
         try:
             dataset = refresh_data_cache()
             dataset_error = None
@@ -586,9 +975,11 @@ def build_interface():
             dataset_error = str(exc)
 
         with gr.Tabs():
-            with gr.Tab("Prediction Studio"):
+            with gr.Tab("🎯 Prediction Studio"):
                 render_prediction_tab(dataset, dataset_error)
-            with gr.Tab("Insights & EDA"):
+            with gr.Tab("⚖️ What-If Vergleich"):
+                render_whatif_tab(dataset, dataset_error)
+            with gr.Tab("📊 Insights & EDA"):
                 render_insights_tab(dataset, dataset_error)
 
     return demo
@@ -598,19 +989,33 @@ def register_api_routes(api: FastAPI) -> None:
     @api.get("/api/health")
     def healthcheck():
         rows = len(DATA_CACHE) if DATA_CACHE is not None else 0
+        model_info = get_model_info()
         return {
             "status": "ok",
             "has_model": PIPELINE is not None,
+            "model_type": model_info["model_type"],
             "rows_cached": rows,
             "schema": settings.db_schema,
             "table": settings.table_name,
         }
+
+    @api.get("/api/model-info")
+    def model_info_endpoint():
+        return get_model_info()
 
     @api.get("/api/players")
     def list_players(limit: int = 50):
         dataset = refresh_data_cache()
         limited = dataset[["player_name", "country", TARGET_COL]].head(limit).fillna("UNK")
         return limited.to_dict(orient="records")
+
+    @api.get("/api/player/{player_name}")
+    def get_player(player_name: str):
+        dataset = refresh_data_cache()
+        row = _get_player_row(player_name, dataset)
+        if row is None:
+            raise HTTPException(status_code=404, detail="Player not found")
+        return row.to_dict()
 
     @api.post("/api/predict")
     def predict_api(request: PredictionRequest):
@@ -624,8 +1029,15 @@ def register_api_routes(api: FastAPI) -> None:
         }
         feature_frame = build_prediction_frame(payload)
         rating = predict_rating(PIPELINE, feature_frame)
+        
+        # Get actual FDI if player exists
+        dataset = refresh_data_cache()
+        actual_fdi = get_player_actual_fdi(request.player_name, dataset) if request.player_name else None
+        
         return {
             "prediction": rating,
+            "actual_fdi_dartsorakel": actual_fdi,
+            "delta": round(rating - actual_fdi, 2) if actual_fdi else None,
             "player_name": payload["player_name"],
             "country": payload["country"],
         }
