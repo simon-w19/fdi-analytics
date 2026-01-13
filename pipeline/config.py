@@ -59,6 +59,7 @@ class Settings:
     scrape_delay_seconds: float = float(os.getenv("FDI_SCRAPE_DELAY_SECONDS", "0"))
     scrape_max_players: int | None = _optional_int(os.getenv("FDI_SCRAPE_MAX_PLAYERS"))
     skip_scrape: bool = _as_bool(os.getenv("FDI_SKIP_SCRAPE"))
+    skip_train: bool = _as_bool(os.getenv("FDI_SKIP_TRAIN"))
     scrape_driver: str = os.getenv("FDI_SCRAPE_DRIVER", "requests").lower()
     scrape_retry_attempts: int = int(os.getenv("FDI_SCRAPE_RETRIES", "3"))
     scrape_retry_delay: float = float(os.getenv("FDI_SCRAPE_RETRY_DELAY", "1.5"))

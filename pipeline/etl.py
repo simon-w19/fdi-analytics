@@ -1,11 +1,11 @@
-"""End-to-end orchestration: scrape -> transform -> load."""
+"""End-to-end orchestration: scrape -> transform -> load -> train."""
 from __future__ import annotations
 
 import argparse
 import logging
 from pathlib import Path
 
-from . import ingest, monitoring, scraper, transform, validation
+from . import ingest, monitoring, scraper, train, transform, validation
 from .config import settings
 
 LOGGER = logging.getLogger("pipeline.etl")
@@ -15,14 +15,18 @@ logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s - %(
 def run_pipeline(
     *,
     skip_scrape: bool | None = None,
+    skip_train: bool | None = None,
     max_players: int | None = None,
     delay: float | None = None,
     raw_output: Path | None = None,
     processed_output: Path | None = None,
+    model_output: Path | None = None,
 ) -> None:
     should_skip = settings.skip_scrape if skip_scrape is None else skip_scrape
+    should_skip_train = settings.skip_train if skip_train is None else skip_train
     raw_target = raw_output or settings.raw_csv_path
     processed_target = processed_output or settings.processed_csv_path
+    model_target = model_output or Path("models/best_fdi_pipeline.joblib")
 
     if should_skip:
         LOGGER.info("Skipping scraping step (skip_scrape flag is active).")
@@ -44,16 +48,26 @@ def run_pipeline(
 
     LOGGER.info("Running ingestion step...")
     ingest.main(csv_path=processed_target)
+
+    if should_skip_train:
+        LOGGER.info("Skipping training step (skip_train flag is active).")
+    else:
+        LOGGER.info("Running training step...")
+        leaderboard = train.train(csv_path=processed_target, model_path=model_target)
+        LOGGER.info("Training complete. Best models: %s", list(leaderboard.keys()))
+
     LOGGER.info("ETL pipeline finished successfully.")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the full FDI ETL pipeline")
     parser.add_argument("--skip-scrape", action="store_true", help="Reuse existing raw CSV and skip scraping")
+    parser.add_argument("--skip-train", action="store_true", help="Skip model training step")
     parser.add_argument("--max-players", type=int, default=None, help="Limit number of players to scrape")
     parser.add_argument("--delay", type=float, default=None, help="Delay between requests in seconds")
     parser.add_argument("--raw", type=Path, default=None, help="Override raw CSV output path")
     parser.add_argument("--processed", type=Path, default=None, help="Override processed CSV path")
+    parser.add_argument("--model", type=Path, default=None, help="Override model output path")
     return parser.parse_args()
 
 
@@ -61,10 +75,12 @@ def main() -> None:
     args = parse_args()
     run_pipeline(
         skip_scrape=args.skip_scrape,
+        skip_train=args.skip_train,
         max_players=args.max_players,
         delay=args.delay,
         raw_output=args.raw,
         processed_output=args.processed,
+        model_output=args.model,
     )
 
 
