@@ -200,6 +200,19 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     for col in BASE_NUMERIC_COLS:
         if col in engineered.columns:
             engineered[col] = pd.to_numeric(engineered[col], errors="coerce")
+    
+    # 9-Darter: NaN bedeutet "kein 9-Darter geworfen" → mit 0 füllen (nicht Median!)
+    if "profile_9_darters" in engineered.columns:
+        engineered["profile_9_darters"] = engineered["profile_9_darters"].fillna(0)
+    
+    # Tour Card Years: NaN bedeutet "keine Tour Card" → mit 0 füllen
+    if "profile_tour_card_years" in engineered.columns:
+        engineered["profile_tour_card_years"] = engineered["profile_tour_card_years"].fillna(0)
+    
+    # Order of Merit: NaN bedeutet "nicht im Ranking" → mit 0 füllen
+    if "profile_order_of_merit" in engineered.columns:
+        engineered["profile_order_of_merit"] = engineered["profile_order_of_merit"].fillna(0)
+    
     engineered["log_total_earnings"] = np.log1p(engineered["profile_total_earnings"].clip(lower=0))
     engineered["season_win_rate"] = engineered["profile_season_win_pct"] / 100.0
     engineered["checkout_combo"] = (
@@ -247,6 +260,10 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
 def default_input_vector(df: pd.DataFrame) -> Dict[str, float]:
     medians = df[NUMERIC_INPUT_COLUMNS].median(numeric_only=True)
     defaults = medians.to_dict()
+    # Qualitätsmerkmale: Default ist 0, nicht Median (die meisten Spieler haben keinen Wert)
+    defaults["profile_9_darters"] = 0.0
+    defaults["profile_tour_card_years"] = 0.0
+    defaults["profile_order_of_merit"] = 0.0
     defaults[COUNTRY_FEATURE] = "UNK"
     defaults["player_name"] = "Custom Input"
     return defaults

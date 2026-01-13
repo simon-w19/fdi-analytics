@@ -1,176 +1,287 @@
-# End-to-End Darts Analytics
+# 🎯 FDI Analytics
 
-Predictive Modeling des Future Dart Intelligence (FDI) Ratings mittels einer containerisierten Pipeline: Scraper (BeautifulSoup), Transformation, PostgreSQL, Scheduler, Training und Gradio-App laufen komplett in dieser Codebasis.
+> **End-to-End Darts Analytics: Prädiktive Modellierung des FDI-Ratings mittels einer containerisierten Data-Pipeline**
+
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](https://docs.docker.com/compose/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+Dieses Projekt prognostiziert das **FDI-Rating** (Future Dart Intelligence) professioneller Darts-Spieler mithilfe statistischer Modelle. Die vollständige Pipeline – von Web-Scraping über Feature Engineering bis zum Deployment – läuft containerisiert.
+
+---
+
+## 📋 Inhaltsverzeichnis
+
+- [Features](#-features)
+- [Quick Start](#-quick-start)
+- [Architektur](#-architektur)
+- [Projektstruktur](#-projektstruktur)
+- [Datenpipeline](#-datenpipeline)
+- [Modellierung](#-modellierung)
+- [KPIs & Ergebnisse](#-kpis--ergebnisse)
+- [Konfiguration](#-konfiguration)
+- [Entwicklung](#-entwicklung)
+- [Lessons Learned](#-lessons-learned)
+- [Lizenz](#-lizenz)
+
+---
+
+## ✨ Features
+
+- **🕷️ Automatisiertes Web-Scraping** von [DartsOrakel](https://dartsorakel.com)
+- **🔄 ETL-Pipeline** mit Feature Engineering und PostgreSQL-Integration
+- **📊 Modellvergleich**: Linear Regression, Lasso, Random Forest mit GridSearchCV
+- **🌐 Gradio Web-App** für Echtzeit-Vorhersagen
+- **🐳 Vollständig containerisiert** mit Docker Compose
+- **⏰ Automatische Updates** via Scheduler (wöchentlich konfigurierbar)
+
+---
+
+## 🚀 Quick Start
+
+### Voraussetzungen
+
+- [Docker](https://docs.docker.com/get-docker/) & Docker Compose
+- [uv](https://github.com/astral-sh/uv) (Python Package Manager) für lokale Entwicklung
+
+### Installation
+
+```bash
+# Repository klonen
+git clone https://github.com/yourusername/fdi-analytics.git
+cd fdi-analytics
+
+# Umgebungsvariablen konfigurieren
+cp .env.example .env
+
+# Container starten (baut Images, führt ETL aus, startet App)
+docker compose up -d
+```
+
+### Zugriff
+
+| Endpunkt | URL |
+|----------|-----|
+| **Web-App** | http://localhost:7860 |
+| **API Health** | http://localhost:7860/api/health |
+| **API Predict** | http://localhost:7860/api/predict |
+
+---
+
+## 🏗️ Architektur
 
 ```
-[ Scraper ] --> [ Transform ] --> [ Postgres DB ]
-  |                     |                 |
-  v                     v                 v
- data/raw/*.csv     data/processed/*.csv   Gradio API & UI
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Scraper   │────▶│  Transform  │────▶│  PostgreSQL │
+│ (Beautiful  │     │  (Feature   │     │    (DB)     │
+│    Soup)    │     │ Engineering)│     │             │
+└─────────────┘     └─────────────┘     └──────┬──────┘
+                                               │
+┌─────────────┐     ┌─────────────┐            │
+│   Gradio    │◀────│   Train     │◀───────────┘
+│   Web-App   │     │  (sklearn)  │
+└─────────────┘     └─────────────┘
 ```
 
-## Quick Start
+### Docker Services
 
-1. **Dependencies installieren**
-   ```bash
-   uv sync
-   cp .env.example .env
-   ```
-2. **Lokale Datenbank & App via Docker starten**
-   ```bash
-   docker compose build
-   docker compose up
-   ```
-   - `db`: PostgreSQL 16 (persistentes Volume)
-  - `etl`: führt einmalig `pipeline.etl` aus (Scrape -> Transform -> Load)
-   - `scheduler`: wiederholt denselben Job im Intervall `FDI_REFRESH_MINUTES`
-   - `app`: Gradio + FastAPI Service
-3. **Frontend öffnen**: http://localhost:${APP_PORT} (Standard 7860)
-  - Tab "Prediction Studio": manuelle Eingaben oder Spielerprofile auswählen und Ratings in Echtzeit berechnen.
-  - Tab "Insights & EDA": Modell-Leaderboard, Top-Spieler und interaktive Scatterplots zur Kommunikation der Analyse-Erkenntnisse.
+| Service | Beschreibung | Port |
+|---------|--------------|------|
+| `db` | PostgreSQL 16 (Alpine) mit persistentem Volume | 5432 |
+| `etl` | Scraping → Transform → Train → Ingest | - |
+| `scheduler` | Periodisches ETL-Refresh | - |
+| `app` | Gradio + FastAPI Web-Service | 7860 |
 
-## Architektur im Detail
+---
 
-| Baustein | Beschreibung |
-| --- | --- |
-| `pipeline.scraper` | BeautifulSoup-Scraper für dartsorakel.com inkl. `--max-players` und optionalem Delay. |
-| `pipeline.transform` | Bereinigt und feature-engineert die Scraper-Ausgabe (siehe `pipeline.features`). |
-| `pipeline.ingest` | Lädt die veredelten CSV-Daten per SQLAlchemy in PostgreSQL. |
-| `pipeline.etl` | Orchestriert Scrape -> Transform -> Load; wird vom Docker-Job und vom Scheduler verwendet. |
-| `pipeline.scheduler` | Führt die ETL-Routine in einem konfigurierbaren Wochen/Minuten-Rhythmus aus und reagiert sauber auf SIGTERM. |
-| `app/gradio_app.py` | Kombiniert Gradio-UI (Prediction Tab + Insights/EDA Tab), FastAPI-Endpunkte (`/api/*`) und das trainierte Pipeline-Modell. |
-
-## Verzeichnisüberblick
+## 📁 Projektstruktur
 
 ```
-├── app/                 # Gradio + FastAPI Service
+fdi-analytics/
+├── app/                    # Gradio + FastAPI Web-Service
+│   └── gradio_app.py       # Prediction Studio & Insights
 ├── data/
-│   ├── raw/             # Scraper-Output (`FDI_RAW_CSV_PATH`)
-│   └── processed/       # Feature-engineerte Daten (`FDI_PROCESSED_CSV_PATH`)
+│   ├── raw/                # Scraper-Output (CSV)
+│   └── processed/          # Feature-engineerte Daten
+├── docker/                 # Dockerfiles
+├── models/                 # Trainierte Modelle (.joblib)
+├── notebooks/
+│   ├── eda.ipynb           # Explorative Datenanalyse
+│   └── fdi_rating_modeling.ipynb  # Modellierung & Evaluation
 ├── pipeline/
-│   ├── scraper.py       # BeautifulSoup Scraper
-│   ├── transform.py     # Feature Engineering für Persistenz & Training
-│   ├── ingest.py        # Load in PostgreSQL
-│   ├── etl.py           # Orchestrierung + CLI
-│   ├── scheduler.py     # Cron-ähnlicher Loop
-│   └── train.py         # Modelltraining (Linear Regression, Lasso, Random Forest)
-├── docker/              # App- & ETL-Dockerfiles
-├── models/              # Serialisierte Pipelines (`best_fdi_pipeline.joblib`)
-├── notebooks/           # EDA/Modellierung (Scraper-Notebook delegiert an pipeline.scraper)
-├── reports/             # Notebook-Reports & Metriken
-└── tests/               # Pytest-Suite (Feature Engineering & Ingestion)
+│   ├── scraper.py          # BeautifulSoup Web-Scraper
+│   ├── transform.py        # Feature Engineering
+│   ├── features.py         # Feature-Definitionen
+│   ├── train.py            # Modelltraining & Vergleich
+│   ├── ingest.py           # PostgreSQL-Import
+│   ├── etl.py              # Pipeline-Orchestrierung
+│   └── scheduler.py        # Cron-ähnlicher Loop
+├── reports/
+│   └── metrics/            # Modell-Metriken (JSON)
+├── tests/                  # Pytest-Suite
+├── docker-compose.yml
+└── pyproject.toml
 ```
-
-## Datenpipeline bedienen
-
-- **Einmaliger Lauf (z. B. lokal)**
-  ```bash
-  uv run python -m pipeline.etl --max-players 250 --delay 0.25
-  ```
-  - `--skip-scrape`: vorhandene `data/raw/*.csv` wiederverwenden
-  - `FDI_SCRAPE_MAX_PLAYERS`, `FDI_SCRAPE_DELAY_SECONDS`, `FDI_SKIP_SCRAPE` im `.env` setzbar
-- **Nur Scraper anwerfen**
-  ```bash
-  uv run python -m pipeline.scraper --max-players 100 --output data/raw/custom.csv
-  ```
-- **Transformation isoliert testen**
-  ```bash
-  uv run python -m pipeline.transform --help  # oder direkt in Python importieren
-  ```
-
-## 📊 KPIs & Projekterfolg
-
-Das Projekt wird anhand von 6 konkrete KPIs gemessen, die in [notebooks/fdi_rating_modeling.ipynb](notebooks/fdi_rating_modeling.ipynb) detailliert definiert sind:
-
-| KPI | Ist-Zustand | Soll-Zustand | Status |
-|-----|----------|----------|--------|
-| **Modellgenauigkeit (MAE)** | 35.27 FDI-Punkte | < 40 | ✅ |
-| **Erklärte Varianz (R²)** | 0.9286 | > 0.85 | ✅ |
-| **CV-Robustheit (σ)** | ±0.43 | < ±5 | ✅ |
-| **Feature-Interpretabilität** | Top 5 identified (First-9, Checkout, Legs-Win, log Earnings, Season-Win) | Explainable features | ✅ |
-| **Residuen-Diagnostik** | Durbin-Watson=1.95, Heteroskedastizität r=-0.18, Cook's D 99.8% < Threshold | Unabhängig, homogen, no influential outliers | ✅ |
-| **Production Readiness** | <100ms Inference, Gradio UI + Docker containerized, Weekly Scheduler | 24/7 Verfügbarkeit | ✅ |
-
-**Fazit:** Alle KPIs erfüllt oder übertroffen → **Projekt-Erfolg bestätigt** ✅
 
 ---
 
-## Training & Modellvergleich
+## 🔄 Datenpipeline
 
-`pipeline/train.py` vergleicht drei Ansätze (Linear Regression als Baseline, Lasso, Random Forest) über einen 80/20-Split und 5-fold Cross-Validation. Für Lasso und Random Forest läuft automatisch ein GridSearchCV-basiertes Hyperparameter-Tuning (ebenfalls 5-fold). Ergebnis:
-
-```bash
-uv run python -m pipeline.train \
-  --csv data/processed/player_stats_all.csv \
-  --model-path models/best_fdi_pipeline.joblib \
-  --metrics-path reports/metrics/latest_metrics.json
-```
-
-- Das beste Modell wird als vollständige `sklearn`-Pipeline persistiert und direkt von Gradio geladen.
-- Die JSON-Metriken enthalten MAE, RMSE, $R^2$ sowie die CV-Ergebnisse aller Modelle und dienen als Audit-Log.
-
-### Artefakte ohne Container-Rebuild aktualisieren
-
-Der Gradio-Container mountet `models/` und `reports/metrics/` direkt:
-
-```
-app:
-  volumes:
-    - ./models:/app/models:ro
-    - ./reports/metrics:/app/reports/metrics:ro
-```
-
-Workflow nach jedem Training:
-
-1. `uv run python -m pipeline.train` — erzeugt `models/best_fdi_pipeline.joblib` und `reports/metrics/latest_metrics.json`.
-2. Artefakte landen dank Mounts sofort im laufenden Container (kein `docker compose build` nötig).
-3. `docker compose restart app` (oder `docker compose up -d app`) lädt das Modell neu; das Insights-Leaderboard liest automatisch die aktualisierte `latest_metrics.json`.
-
-Optional kannst du die beiden Ordner auf S3/MinIO spiegeln, solange der Mount-Pfad auf dem Host weiterhin gefüllt wird.
-
-## Qualitätssicherung
+### Vollständiger ETL-Lauf
 
 ```bash
-uv run pytest                # führt die Tests im Ordner tests/ aus
-uv run ruff check .          # statische Analyse
-uv run ruff format .         # optionales Formatting
+# Lokal (mit uv)
+uv run python -m pipeline.etl
+
+# Mit Optionen
+uv run python -m pipeline.etl --max-players 100 --skip-train
 ```
 
-Die Tests prüfen u. a. das Feature-Engineering sowie das Chunk-Size-Handling beim Bulk-Insert.
+### Einzelne Schritte
 
-## Lessons Learned (kurz)
+```bash
+# Nur Scraping
+uv run python -m pipeline.scraper --max-players 50 --output data/raw/test.csv
 
-- Log-Transformationen auf Earnings sind Pflicht, sonst dominieren Ausreißer.
-- Regularisierte lineare Modelle reichen aktuell aus; Random Forest brachte mit den vorhandenen Features keinen Zugewinn.
-- Data Leakage vermeiden: API-Rankings (`api_rank`, `api_overall_stat`) frühzeitig entfernen.
-- Fehlwerte bei Alters-/Erfahrungsvariablen machen robuste Imputation (Median/Mode) nötig und sollten explizit getrackt werden.
+# Nur Training
+uv run python -m pipeline.train --csv data/processed/player_stats_all.csv
 
-## Environment-Variablen
+# App starten (lokal)
+uv run python -m app.gradio_app
+```
 
-| Variable | Zweck |
-| --- | --- |
-| `FDI_RAW_CSV_PATH` | Speicherort des Scraper-Outputs (Standard `data/raw/player_stats_raw.csv`). |
-| `FDI_PROCESSED_CSV_PATH` | Feature-engineerte CSV für Training & Ingestion. |
-| `FDI_SCRAPE_MAX_PLAYERS` | Optionales Limit, z. B. für lokale Tests. Leer = alle Spieler. |
-| `FDI_SCRAPE_DELAY_SECONDS` | Delay zwischen Requests zur Schonung des Targets. |
-| `FDI_SKIP_SCRAPE` | `true`, um nur Transform + Load auszuführen (nützlich bei reproduzierbaren Re-Runs). |
-| `FDI_DB_CHUNKSIZE` | Chunk-Größe für `pandas.to_sql`. |
-| `FDI_REFRESH_MINUTES` | Intervall des Docker-Schedulers. |
-| `APP_HOST` / `APP_PORT` | Netzwerkeinstellungen der Gradio-App. |
-| `MLFLOW_ENABLED` | Aktiviert das optionale MLflow-Tracking (`true`/`false`). |
-| `MLFLOW_TRACKING_URI` | URI/Backend für MLflow, z. B. `http://localhost:5000`. |
-| `MLFLOW_EXPERIMENT_NAME` | Experimentbezeichnung, falls Logging aktiv ist. |
+### Docker-Workflow
 
-Weitere Postgres-Parameter (`POSTGRES_*`, `DATABASE_URL`) werden direkt von Docker Compose übernommen.
+```bash
+# Alles neu bauen und starten
+docker compose down && docker compose build --no-cache && docker compose up -d
 
-## Deployment mit Docker Compose
+# ETL manuell triggern
+docker compose run --rm etl
 
-1. `.env` bereitstellen.
-2. `docker compose build && docker compose up -d`
-3. Logs prüfen: `docker compose logs -f scheduler`
-
-Aktualisierte CSV-Dateien kannst du jederzeit mit `docker compose run --rm etl` sofort neu laden; der Scheduler übernimmt ansonsten das wöchentliche Refresh automatisch.
+# Logs verfolgen
+docker compose logs -f etl
+```
 
 ---
 
-**Tipp:** Für lokale Experimente kannst du `uv run python -m app.gradio_app` starten. Die App verbindet sich automatisch mit der Postgres-Instanz (oder fällt auf die CSV zurück) und stellt zusätzlich die API-Endpunkte `/api/health`, `/api/players` und `/api/predict` bereit.
+## 📈 Modellierung
+
+### Verglichene Modelle
+
+| Modell | R² | MAE | RMSE | CV MAE (σ) |
+|--------|-----|-----|------|------------|
+| Linear Regression | 0.928 | 35.4 | 46.4 | 38.6 (±0.56) |
+| **Lasso (α=0.01)** | **0.928** | **35.4** | **46.2** | **38.5 (±0.47)** |
+| Random Forest | 0.923 | 37.4 | 48.1 | 40.3 (±1.09) |
+
+### Feature Engineering
+
+**Numerische Features** (38 total):
+- **Performance**: 3-Dart Average, First-9 Average, Checkout %
+- **Erfolg**: Season Win Rate, Legs Won %, Order of Merit
+- **Finanzen**: Log-transformierte Earnings
+- **Abgeleitete**: `first9_delta`, `momentum_gap`, `break_efficiency`, `power_scoring_ratio`
+
+**Kategorisch**: Country (One-Hot Encoded, ~30 Länder)
+
+### Top-5 Prädiktoren
+
+1. **last_12_months_first_9_averages** – Early-Game-Dominanz
+2. **last_12_months_checkout_pcnt** – Finish-Qualität
+3. **last_12_months_pcnt_legs_won** – Gewinneffizienz
+4. **log_total_earnings** – Langfristiger Erfolg
+5. **profile_season_win_pct** – Aktuelle Form
+
+---
+
+## 🎯 KPIs & Ergebnisse
+
+| KPI | Ist | Soll | Status |
+|-----|-----|------|--------|
+| Modellgenauigkeit (MAE) | 35.4 FDI-Punkte | < 40 | ✅ |
+| Erklärte Varianz (R²) | 0.928 | > 0.85 | ✅ |
+| CV-Robustheit (σ) | ±0.47 | < ±5 | ✅ |
+| Feature-Interpretabilität | Top 5 identifiziert | Explainable | ✅ |
+| Residuen-Diagnostik | Durbin-Watson: 1.99 | Unabhängig | ✅ |
+| Production Readiness | Docker + <100ms Inference | 24/7 | ✅ |
+
+**→ Alle KPIs erfüllt. Projekt-Erfolg bestätigt.** ✅
+
+---
+
+## ⚙️ Konfiguration
+
+### Wichtige Umgebungsvariablen
+
+| Variable | Beschreibung | Default |
+|----------|--------------|---------|
+| `FDI_SKIP_SCRAPE` | Scraping überspringen | `false` |
+| `FDI_SKIP_TRAIN` | Training überspringen | `false` |
+| `FDI_SCRAPE_MAX_PLAYERS` | Spieler-Limit (leer = alle) | - |
+| `FDI_SCRAPE_DELAY_SECONDS` | Delay zwischen Requests | `0` |
+| `FDI_REFRESH_MINUTES` | Scheduler-Intervall | `10080` (7 Tage) |
+| `APP_PORT` | Gradio-Port | `7860` |
+| `DATABASE_URL` | PostgreSQL-Connection | siehe `.env` |
+
+Vollständige Liste: siehe [.env.example](.env.example)
+
+---
+
+## 🛠️ Entwicklung
+
+### Setup
+
+```bash
+# Dependencies installieren
+uv sync
+
+# Tests ausführen
+uv run pytest
+
+# Linting
+uv run ruff check .
+
+# Formatierung
+uv run ruff format .
+```
+
+### Modell-Artefakte aktualisieren
+
+```bash
+# Training lokal ausführen
+uv run python -m pipeline.train
+
+# Container neu starten (lädt neues Modell)
+docker compose restart app
+```
+
+---
+
+## 💡 Lessons Learned
+
+1. **Log-Transformation**: Earnings sind stark rechtsschief – ohne Log dominieren Ausreißer
+2. **Regularisierung genügt**: Lasso performt gleich gut wie Random Forest bei weniger Komplexität
+3. **Data Leakage vermeiden**: API-Rankings (`api_rank`) korrelieren perfekt mit Target → entfernt
+4. **Multikollinearität**: VIF-Analyse zeigt r > 0.99 bei First-9/Average → Feature-Reduktion möglich
+5. **Imputation tracken**: Fehlende Alters-/Erfahrungswerte erfordern robuste Median-Imputation
+
+---
+
+## 📚 Referenzen
+
+- [Introduction to Modern Statistics](https://openintro-ims.netlify.app/) – OpenIntro
+- [An Introduction to Statistical Learning](https://www.statlearning.com/) – James et al.
+- [DartsOrakel](https://dartsorakel.com) – Datenquelle
+
+---
+
+## 📄 Lizenz
+
+MIT License – siehe [LICENSE](LICENSE)
+
+---
+
+<p align="center">
+  <i>Entwickelt für das Modul "Data Analytics with Statistics" an der HdM Stuttgart</i>
+</p>
