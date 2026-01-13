@@ -50,7 +50,9 @@ PIPELINE_PATH = PROJECT_ROOT / "models" / "best_fdi_pipeline.joblib"
 METRICS_PATH = PROJECT_ROOT / "reports" / "metrics" / "latest_metrics.json"
 ENGINE: Engine | None = None
 DATA_CACHE: pd.DataFrame | None = None
+PLAYER_NAME_SET: set[str] = set()  # Fast lookup cache
 PLAYER_CHOICES: List[str] = ["Freie Eingabe"]
+TOP_PLAYER_CHOICES: List[str] = []  # Top 100 players for quick dropdown
 COUNTRY_CHOICES: List[str] = ["UNK"]
 INSIGHT_FEATURE_CHOICES: List[str] = [
     "last_12_months_averages",
@@ -245,7 +247,8 @@ def export_prediction_json(
 
 def _get_player_row(player_name: str, dataset: pd.DataFrame) -> pd.Series | None:
     """Get a player's data row from the dataset."""
-    if player_name and player_name != "Freie Eingabe":
+    # Use cached set for O(1) lookup
+    if player_name and player_name != "Freie Eingabe" and player_name in PLAYER_NAME_SET:
         matches = dataset.loc[dataset["player_name"] == player_name]
         if not matches.empty:
             return matches.iloc[0]
@@ -526,6 +529,12 @@ def render_scatter_plot(feature: str):
     df = dataset[[feature, TARGET_COL, "player_name", "country"]].dropna()
     if df.empty:
         return alt.Chart(pd.DataFrame({"Hinweis": ["Keine Daten für diesen Plot"]})).mark_text()
+    
+    # Sample for performance if dataset is large (>500 points slow down browser)
+    max_points = 500
+    if len(df) > max_points:
+        df = df.sample(n=max_points, random_state=42)
+    
     return (
         alt.Chart(df)
         .mark_circle(size=60, opacity=0.7)
@@ -576,11 +585,21 @@ def load_dataset() -> pd.DataFrame:
 
 
 def refresh_data_cache(force: bool = False) -> pd.DataFrame:
-    global DATA_CACHE, PLAYER_CHOICES, COUNTRY_CHOICES
+    global DATA_CACHE, PLAYER_CHOICES, COUNTRY_CHOICES, PLAYER_NAME_SET, TOP_PLAYER_CHOICES
     if force or DATA_CACHE is None:
         DATA_CACHE = load_dataset()
         player_names = sorted(DATA_CACHE["player_name"].dropna().unique().tolist())
+        PLAYER_NAME_SET = set(player_names)  # Fast O(1) lookup
         PLAYER_CHOICES = ["Freie Eingabe"] + player_names
+        
+        # Top 100 players by FDI for quick dropdown (much faster than 3000 items)
+        top_players = (
+            DATA_CACHE.nlargest(100, TARGET_COL)["player_name"]
+            .dropna()
+            .tolist()
+        )
+        TOP_PLAYER_CHOICES = ["-- Tippe Spielernamen --"] + top_players
+        
         COUNTRY_CHOICES = sorted({"UNK"} | set(DATA_CACHE["country"].dropna().tolist()))
         LOGGER.info("Dataset cache primed with %s rows.", len(DATA_CACHE))
     return DATA_CACHE
@@ -610,7 +629,8 @@ def predict_rating(pipeline, features: pd.DataFrame) -> float:
 
 
 def _get_prefilled_row(selection: str, dataset: pd.DataFrame) -> pd.Series:
-    if selection != "Freie Eingabe" and selection in set(dataset["player_name"].tolist()):
+    # Use cached set for O(1) lookup instead of O(n) list conversion
+    if selection != "Freie Eingabe" and selection in PLAYER_NAME_SET:
         row = dataset.loc[dataset["player_name"] == selection].iloc[0]
     else:
         row = pd.Series(default_input_vector(dataset))
@@ -629,8 +649,13 @@ def _prepare_feature_table(features: pd.DataFrame) -> pd.DataFrame:
 
 def handle_prefill(selection: str) -> List:
     """Handle player selection and prefill all inputs including actual FDI."""
-    dataset = refresh_data_cache()
-    row = _get_prefilled_row(selection, dataset)
+    # Handle empty or placeholder selections
+    if not selection or selection in ("-- Tippe Spielernamen --", "Freie Eingabe"):
+        return ["FDI Prospect", "UNK", "N/A"] + [0.0] * len(NUMERIC_INPUT_COLUMNS)
+    
+    # Use cached dataset - don't reload unless necessary
+    dataset = DATA_CACHE if DATA_CACHE is not None else refresh_data_cache()
+    row = _get_prefilled_row(selection.strip(), dataset)
     
     # Get actual FDI for comparison
     actual_fdi = get_player_actual_fdi(selection, dataset)
@@ -703,7 +728,8 @@ def handle_whatif_comparison(player1: str, player2: str):
     if PIPELINE is None:
         raise gr.Error("Kein Modellartefakt geladen.")
     
-    dataset = refresh_data_cache()
+    # Use cached dataset
+    dataset = DATA_CACHE if DATA_CACHE is not None else refresh_data_cache()
     
     results = []
     for player_name in [player1, player2]:
@@ -781,7 +807,7 @@ def handle_whatif_comparison(player1: str, player2: str):
 
 def render_prediction_tab(dataset: pd.DataFrame | None, dataset_error: str | None) -> None:
     gr.Markdown("## 🎯 Prediction Studio")
-    gr.Markdown("Wähle einen Spieler aus, um dessen Features zu laden und das vorhergesagte FDI-Rating mit dem echten DartsOrakel-Wert zu vergleichen.")
+    gr.Markdown("Wähle einen Spieler aus der Top-100 Liste oder tippe einen Namen ein.")
     
     if dataset_error or dataset is None:
         gr.Markdown(f"❗ **Datenquelle fehlt.** {dataset_error or 'unbekannter Fehler'}.")
@@ -790,12 +816,19 @@ def render_prediction_tab(dataset: pd.DataFrame | None, dataset_error: str | Non
     # Model info panel in sidebar
     with gr.Row():
         with gr.Column(scale=3):
-            # Player selection
-            player_selector = gr.Dropdown(
-                choices=PLAYER_CHOICES,
-                value=PLAYER_CHOICES[0],
-                label="🎮 Spieler auswählen (lädt Features automatisch)",
-            )
+            # Player selection - use Top 100 dropdown (fast!) + search textbox
+            with gr.Row():
+                player_selector = gr.Dropdown(
+                    choices=TOP_PLAYER_CHOICES,
+                    value=TOP_PLAYER_CHOICES[0],
+                    label="🎯 Top 100 Spieler (schnelle Auswahl)",
+                    scale=2,
+                )
+                player_search = gr.Textbox(
+                    label="🔍 Spieler suchen (beliebiger Name)",
+                    placeholder="z.B. Michael van Gerwen",
+                    scale=2,
+                )
             
             with gr.Row():
                 player_name_box = gr.Textbox(label="Spielername", value="FDI Prospect")
@@ -852,6 +885,13 @@ def render_prediction_tab(dataset: pd.DataFrame | None, dataset_error: str | Non
         outputs=[player_name_box, country_dropdown, actual_fdi_box] + numeric_components,
     )
     
+    # Search box also triggers prefill
+    player_search.submit(
+        fn=handle_prefill,
+        inputs=player_search,
+        outputs=[player_name_box, country_dropdown, actual_fdi_box] + numeric_components,
+    )
+    
     predict_button.click(
         fn=handle_prediction,
         inputs=[player_name_box, country_dropdown, actual_fdi_box] + numeric_components,
@@ -861,23 +901,29 @@ def render_prediction_tab(dataset: pd.DataFrame | None, dataset_error: str | Non
 
 def render_whatif_tab(dataset: pd.DataFrame | None, dataset_error: str | None) -> None:
     gr.Markdown("## ⚖️ What-If Vergleich")
-    gr.Markdown("Vergleiche zwei Spieler nebeneinander, um zu sehen, wie sich die Vorhersagen unterscheiden.")
+    gr.Markdown("Vergleiche zwei Spieler aus der Top-100 oder tippe Namen ein.")
     
     if dataset_error or dataset is None:
         gr.Markdown(f"❗ **Datenquelle fehlt.** {dataset_error or 'unbekannter Fehler'}.")
         return
     
+    gr.Markdown("### Schnellauswahl (Top 100)")
     with gr.Row():
         player1_dropdown = gr.Dropdown(
-            choices=PLAYER_CHOICES[1:] if len(PLAYER_CHOICES) > 1 else PLAYER_CHOICES,
-            value=PLAYER_CHOICES[1] if len(PLAYER_CHOICES) > 1 else PLAYER_CHOICES[0],
-            label="🎮 Spieler 1",
+            choices=TOP_PLAYER_CHOICES[1:] if len(TOP_PLAYER_CHOICES) > 1 else TOP_PLAYER_CHOICES,
+            value=TOP_PLAYER_CHOICES[1] if len(TOP_PLAYER_CHOICES) > 1 else None,
+            label="🎯 Spieler 1",
         )
         player2_dropdown = gr.Dropdown(
-            choices=PLAYER_CHOICES[1:] if len(PLAYER_CHOICES) > 1 else PLAYER_CHOICES,
-            value=PLAYER_CHOICES[2] if len(PLAYER_CHOICES) > 2 else PLAYER_CHOICES[0],
-            label="🎮 Spieler 2",
+            choices=TOP_PLAYER_CHOICES[1:] if len(TOP_PLAYER_CHOICES) > 1 else TOP_PLAYER_CHOICES,
+            value=TOP_PLAYER_CHOICES[2] if len(TOP_PLAYER_CHOICES) > 2 else None,
+            label="🎯 Spieler 2",
         )
+    
+    gr.Markdown("### Oder: Beliebigen Spieler suchen")
+    with gr.Row():
+        player1_search = gr.Textbox(label="Spieler 1 (Name eingeben)", placeholder="z.B. Peter Wright")
+        player2_search = gr.Textbox(label="Spieler 2 (Name eingeben)", placeholder="z.B. Gary Anderson")
     
     compare_button = gr.Button("🔄 Vergleichen", variant="primary")
     
@@ -885,9 +931,15 @@ def render_whatif_tab(dataset: pd.DataFrame | None, dataset_error: str | None) -
     comparison_table = gr.Dataframe(label="Vergleichstabelle", interactive=False)
     difference_chart = gr.Plot(label="Feature-Unterschiede")
     
+    def compare_with_fallback(p1_dropdown, p2_dropdown, p1_search, p2_search):
+        """Use search box if filled, otherwise dropdown."""
+        player1 = p1_search.strip() if p1_search and p1_search.strip() else p1_dropdown
+        player2 = p2_search.strip() if p2_search and p2_search.strip() else p2_dropdown
+        return handle_whatif_comparison(player1, player2)
+    
     compare_button.click(
-        fn=handle_whatif_comparison,
-        inputs=[player1_dropdown, player2_dropdown],
+        fn=compare_with_fallback,
+        inputs=[player1_dropdown, player2_dropdown, player1_search, player2_search],
         outputs=[comparison_table, difference_chart, comparison_summary],
     )
 
