@@ -643,7 +643,15 @@ def _get_prefilled_row(selection: str, dataset: pd.DataFrame) -> pd.Series:
 
 def _prepare_feature_table(features: pd.DataFrame) -> pd.DataFrame:
     series = features.iloc[0]
-    values = ["nan" if pd.isna(series[col]) else f"{series[col]:.4f}" for col in FEATURE_COLUMNS]
+    values = []
+    for col in FEATURE_COLUMNS:
+        val = series[col]
+        if pd.isna(val):
+            values.append("nan")
+        elif isinstance(val, (int, float, np.number)):
+            values.append(f"{val:.4f}")
+        else:
+            values.append(str(val))
     return pd.DataFrame({"Feature": FEATURE_COLUMNS, "Wert": values})
 
 

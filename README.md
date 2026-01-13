@@ -173,4 +173,4 @@ Aktualisierte CSV-Dateien kannst du jederzeit mit `docker compose run --rm etl` 
 
 ---
 
-**Tipp:** Für lokale Experimente kannst du `uv run python app/gradio_app.py` starten. Die App verbindet sich automatisch mit der Postgres-Instanz (oder fällt auf die CSV zurück) und stellt zusätzlich die API-Endpunkte `/api/health`, `/api/players` und `/api/predict` bereit.
+**Tipp:** Für lokale Experimente kannst du `uv run python -m app.gradio_app` starten. Die App verbindet sich automatisch mit der Postgres-Instanz (oder fällt auf die CSV zurück) und stellt zusätzlich die API-Endpunkte `/api/health`, `/api/players` und `/api/predict` bereit.
