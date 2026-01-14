@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   db:
     image: postgres:16-alpine
@@ -36,7 +34,7 @@ services:
     build:
       context: .
       dockerfile: docker/etl.Dockerfile
-    entrypoint: ["uv", "run", "python", "-m", "pipeline.scheduler"]
+    entrypoint: ["python", "-m", "pipeline.scheduler"]
     depends_on:
       db:
         condition: service_healthy

@@ -195,18 +195,15 @@ docker compose logs -f etl
 
 ---
 
-## 🎯 KPIs & Ergebnisse
+## 🎯 Ergebnisse
 
-| KPI | Ist | Soll | Status |
-|-----|-----|------|--------|
-| Modellgenauigkeit (MAE) | 35.4 FDI-Punkte | < 40 | ✅ |
-| Erklärte Varianz (R²) | 0.928 | > 0.85 | ✅ |
-| CV-Robustheit (σ) | ±0.47 | < ±5 | ✅ |
-| Feature-Interpretabilität | Top 5 identifiziert | Explainable | ✅ |
+| KPI | Ist | 
+|-----|-----|
+| Modellgenauigkeit (MAE) | 35.4 FDI-Punkte | 
+| Erklärte Varianz (R²) | 0.928 | 
+| CV-Robustheit (σ) | ±0.47 | 
 | Residuen-Diagnostik | Durbin-Watson: 1.99 | Unabhängig | ✅ |
 | Production Readiness | Docker + <100ms Inference | 24/7 | ✅ |
-
-**→ Alle KPIs erfüllt. Projekt-Erfolg bestätigt.** ✅
 
 ---
 
@@ -271,7 +268,6 @@ docker compose restart app
 ## 📚 Referenzen
 
 - [Introduction to Modern Statistics](https://openintro-ims.netlify.app/) – OpenIntro
-- [An Introduction to Statistical Learning](https://www.statlearning.com/) – James et al.
 - [DartsOrakel](https://dartsorakel.com) – Datenquelle
 
 ---

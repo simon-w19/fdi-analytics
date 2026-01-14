@@ -1,0 +1,98 @@
+{
+  "generated_at": "2026-01-14T16:24:03.373739+00:00",
+  "rows": 3001,
+  "columns": [
+    "player_id",
+    "player_name",
+    "country_code",
+    "country",
+    "profile_fdi_rating",
+    "scraped_at",
+    "age",
+    "profile_total_earnings",
+    "log_total_earnings",
+    "profile_9_darters",
+    "profile_season_win_pct",
+    "season_win_rate",
+    "profile_tour_card_years",
+    "profile_highest_average",
+    "profile_highest_tv_average",
+    "profile_order_of_merit",
+    "last_12_months_averages",
+    "last_12_months_first_9_averages",
+    "first9_delta",
+    "last_12_months_first_3_averages",
+    "last_12_months_with_throw_averages",
+    "last_12_months_against_throw_averages",
+    "momentum_gap",
+    "last_12_months_highest_checkout",
+    "last_12_months_checkout_pcnt",
+    "last_12_months_functional_doubles_pcnt",
+    "checkout_combo",
+    "last_12_months_pcnt_legs_won",
+    "last_12_months_pcnt_legs_won_throwing_first",
+    "last_12_months_pcnt_legs_won_throwing_second",
+    "last_12_months_180_s",
+    "last_12_months_171_180_s",
+    "last_12_months_140_s",
+    "last_12_months_131_140_s",
+    "api_sum_field2",
+    "experience_intensity",
+    "earnings_per_year",
+    "first9_ratio",
+    "break_efficiency",
+    "hold_break_spread",
+    "power_scoring_ratio",
+    "tv_stage_delta",
+    "api_rank",
+    "api_sum_field1",
+    "api_overall_stat"
+  ],
+  "null_share": {
+    "profile_fdi_rating": 0.1639453515494835,
+    "age": 0.9130289903365545,
+    "profile_highest_tv_average": 0.8457180939686771,
+    "last_12_months_highest_checkout": 0.0013328890369876708,
+    "last_12_months_180_s": 0.08363878707097634,
+    "last_12_months_171_180_s": 0.07230923025658113,
+    "last_12_months_140_s": 0.009663445518160613,
+    "last_12_months_131_140_s": 0.0016661112962345886,
+    "experience_intensity": 0.9130289903365545,
+    "earnings_per_year": 0.9170276574475175,
+    "break_efficiency": 0.0013328890369876708,
+    "power_scoring_ratio": 0.08563812062645784,
+    "tv_stage_delta": 0.8457180939686771
+  },
+  "numeric_ranges": {
+    "profile_fdi_rating": {
+      "min": 761.0,
+      "max": 2009.0,
+      "mean": 1366.402152251893
+    },
+    "last_12_months_averages": {
+      "min": 35.33,
+      "max": 101.06,
+      "mean": 69.33069310229924
+    },
+    "last_12_months_first_9_averages": {
+      "min": 38.01,
+      "max": 111.52,
+      "mean": 76.2553048983672
+    },
+    "last_12_months_checkout_pcnt": {
+      "min": 0.0,
+      "max": 46.73,
+      "mean": 25.25676774408531
+    },
+    "last_12_months_functional_doubles_pcnt": {
+      "min": 0.0,
+      "max": 56.58,
+      "mean": 29.99357547484172
+    },
+    "last_12_months_180_s": {
+      "min": 1.0,
+      "max": 919.0,
+      "mean": 35.33709090909091
+    }
+  }
+}
