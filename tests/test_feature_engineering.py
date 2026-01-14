@@ -35,7 +35,6 @@ def test_engineer_features_adds_derived_columns():
         "last_12_months_131_140_s": 80,
         "age": 27,
         "api_sum_field1": 1000,
-        "api_sum_field2": 800,
     }
     df = pd.DataFrame([sample])
     engineered = engineer_features(df)

@@ -58,7 +58,6 @@ FEATURE_COLUMNS: List[str] = [
     "last_12_months_171_180_s",
     "last_12_months_140_s",
     "last_12_months_131_140_s",
-    "api_sum_field2",
     "experience_intensity",
     "earnings_per_year",
     "first9_ratio",
@@ -151,7 +150,6 @@ NUMERIC_INPUT_COLUMNS: List[str] = [
     "last_12_months_171_180_s",
     "last_12_months_140_s",
     "last_12_months_131_140_s",
-    "api_sum_field2",
 ]
 DERIVED_FEATURES: List[str] = [
     "log_total_earnings",
