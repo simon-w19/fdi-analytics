@@ -34,7 +34,7 @@ Log Prize Money: Logarithmiertes Preisgeld als Indikator für langfristigen Erfo
 
 World Ranking: Externe Validierung der Spielstärke.
 
-Methodik: Du vergleichst ein Lineares Regressionsmodell (Baseline) mit komplexeren Ansätzen wie Random Forest oder Regularisierter Regression (Lasso), um Nicht-Linearitäten und Multikollinearität zu untersuchen.
+Methodik: Du vergleichst ein Lineares Regressionsmodell (Baseline) mit Regularisierter Regression (Lasso), um Multikollinearität zu behandeln.
 
 3. Deployment & Visualisierung
 Das Ergebnis ist nicht nur ein PDF-Report, sondern eine nutzbare Anwendung:

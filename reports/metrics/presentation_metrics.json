@@ -1,0 +1,15 @@
+{
+  "model": "Lasso (GridSearch)",
+  "r2": 0.9287016685668992,
+  "mae": 35.66794700233969,
+  "rmse": 46.123689108028465,
+  "test_samples": 496,
+  "total_samples": 2978,
+  "top_features": [
+    "last_12_months_with_throw_averages",
+    "last_12_months_against_throw_averages",
+    "last_12_months_pcnt_legs_won",
+    "last_12_months_checkout_pcnt",
+    "country"
+  ]
+}

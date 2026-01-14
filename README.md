@@ -30,7 +30,7 @@ Dieses Projekt prognostiziert das **FDI-Rating** (Future Dart Intelligence) prof
 
 - **🕷️ Automatisiertes Web-Scraping** von [DartsOrakel](https://dartsorakel.com)
 - **🔄 ETL-Pipeline** mit Feature Engineering und PostgreSQL-Integration
-- **📊 Modellvergleich**: Linear Regression, Lasso, Random Forest mit GridSearchCV
+- **📊 Modellvergleich**: Linear Regression und Lasso mit GridSearchCV
 - **🌐 Gradio Web-App** für Echtzeit-Vorhersagen
 - **🐳 Vollständig containerisiert** mit Docker Compose
 - **⏰ Automatische Updates** via Scheduler (wöchentlich konfigurierbar)
@@ -169,11 +169,10 @@ docker compose logs -f etl
 
 ### Verglichene Modelle
 
-| Modell | R² | MAE | RMSE | CV MAE (σ) |
-|--------|-----|-----|------|------------|
-| Linear Regression | 0.928 | 35.4 | 46.4 | 38.6 (±0.56) |
-| **Lasso (α=0.01)** | **0.928** | **35.4** | **46.2** | **38.5 (±0.47)** |
-| Random Forest | 0.923 | 37.4 | 48.1 | 40.3 (±1.09) |
+| Modell | R² | MAE | RMSE |
+|--------|-----|-----|------|
+| Linear Regression | 0.928 | 35.4 | 46.4 |
+| **Lasso (α=0.01)** | **0.928** | **35.4** | **46.2** |
 
 ### Feature Engineering
 
@@ -197,13 +196,11 @@ docker compose logs -f etl
 
 ## 🎯 Ergebnisse
 
-| KPI | Ist | 
-|-----|-----|
-| Modellgenauigkeit (MAE) | 35.4 FDI-Punkte | 
-| Erklärte Varianz (R²) | 0.928 | 
-| CV-Robustheit (σ) | ±0.47 | 
-| Residuen-Diagnostik | Durbin-Watson: 1.99 | Unabhängig | ✅ |
-| Production Readiness | Docker + <100ms Inference | 24/7 | ✅ |
+| KPI | Wert |
+|-----|------|
+| Modellgenauigkeit (MAE) | 35.4 FDI-Punkte |
+| Erklärte Varianz (R²) | 0.928 |
+| Production Readiness | Docker + <100ms Inference |
 
 ---
 
@@ -258,10 +255,9 @@ docker compose restart app
 ## 💡 Lessons Learned
 
 1. **Log-Transformation**: Earnings sind stark rechtsschief – ohne Log dominieren Ausreißer
-2. **Regularisierung genügt**: Lasso performt gleich gut wie Random Forest bei weniger Komplexität
+2. **Regularisierung**: Lasso reduziert Überanpassung und selektiert automatisch Features
 3. **Data Leakage vermeiden**: API-Rankings (`api_rank`) korrelieren perfekt mit Target → entfernt
-4. **Multikollinearität**: VIF-Analyse zeigt r > 0.99 bei First-9/Average → Feature-Reduktion möglich
-5. **Imputation tracken**: Fehlende Alters-/Erfahrungswerte erfordern robuste Median-Imputation
+4. **Feature Engineering**: Abgeleitete Features wie `first9_delta` verbessern Interpretierbarkeit
 
 ---
 

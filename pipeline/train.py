@@ -12,7 +12,6 @@ import joblib
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import Lasso, LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
@@ -42,11 +41,6 @@ PARAM_GRIDS: Dict[str, Dict[str, list[Any]]] = {
     "lasso": {
         "model__alpha": [1e-4, 5e-4, 1e-3, 5e-3, 1e-2],
         "model__max_iter": [20000, 40000],
-    },
-    "random_forest": {
-        "model__n_estimators": [300, 600, 900],
-        "model__max_depth": [10, 12, 16, None],
-        "model__min_samples_leaf": [1, 2, 4],
     },
 }
 
@@ -142,21 +136,6 @@ def build_models(preprocessor: ColumnTransformer) -> Dict[str, Pipeline]:
             steps=[
                 ("preprocessor", preprocessor),
                 ("model", Lasso(alpha=0.001, max_iter=20000, random_state=RANDOM_STATE)),
-            ]
-        ),
-        "random_forest": Pipeline(
-            steps=[
-                ("preprocessor", preprocessor),
-                (
-                    "model",
-                    RandomForestRegressor(
-                        n_estimators=600,
-                        max_depth=12,
-                        min_samples_leaf=2,
-                        random_state=RANDOM_STATE,
-                        n_jobs=-1,
-                    ),
-                ),
             ]
         ),
     }
